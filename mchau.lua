@@ -129,7 +129,7 @@ function MyLibrary:CreateWindow(titleText)
                 if isToggled then 
                     SliderBg.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
                     Circle:TweenPosition(UDim2.new(1, -23, 0.5, -10), "Out", "Quad", 0.15, true)
-                                else 
+                              else 
                     SliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 60) 
                     Circle:TweenPosition(UDim2.new(0, 3, 0.5, -10), "Out", "Quad", 0.15, true)
                 end
@@ -142,41 +142,64 @@ function MyLibrary:CreateWindow(titleText)
 end
 
 -- ====================================================================
--- PHẦN 1.2: LOGIC HỆ THỐNG TỰ ĐỘNG BẤM NÚT HỒI SINH (AUTO SPAWN)
+-- PHẦN 1.2: HỆ THỐNG GIẢ LẬP CLICK TOÀN NĂNG - ÉP BẤM NÚT SPAWN MÀU XANH
 -- ====================================================================
 local PlayersService = game:GetService("Players") 
 local localPlayer = PlayersService.LocalPlayer 
-local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager") -- Dịch vụ click chuột/chạm tay cấp cao
+local GuiService = game:GetService("GuiService")
 
 task.spawn(function() 
     while true do 
-        task.wait(1) 
-        local character = localPlayer.Character 
-        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then 
-            local playerGui = localPlayer:FindFirstChild("PlayerGui") 
-            if playerGui then 
-                for _, gui in pairs(playerGui:GetDescendants()) do 
-                    if gui:IsA("TextButton") or gui:IsA("ImageButton") then 
-                        local buttonText = string.lower(gui.Name) 
-                        if gui:IsA("TextButton") then 
-                            buttonText = buttonText .. string.lower(gui.Text) 
-                        end 
-                        if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then 
-                            if gui.Visible and gui.AbsoluteSize.X > 0 then 
-                                pcall(function() 
-                                    gui:Activate() 
-                                    for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end 
-                                    for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end 
-                                end) 
-                            end 
+        task.wait(0.5) -- Kiểm tra liên tục mỗi 0.5 giây để hồi sinh ngay lập tức
+        
+        -- Chỉ tự động bấm nút Spawn khi bạn đang BẬT nút Auto Farm (_G.AutoFarm == true)
+        if _G.AutoFarm then
+            local character = localPlayer.Character 
+            
+            -- Nếu nhân vật chết hoặc đang kẹt ở màn hình chọn Spawn hiển thị trong ảnh
+            if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then 
+                local playerGui = localPlayer:FindFirstChild("PlayerGui") 
+                if playerGui then 
+                    -- Quét mọi vật thể UI để tìm cái nút ghi chữ "Spawn" viết hoa
+                    for _, gui in pairs(playerGui:GetDescendants()) do 
+                        if gui:IsA("TextButton") then
+                            -- Ép kiểu chữ hoa/thường để tránh lỗi viết sai chính tả tên nút
+                            local buttonText = string.gsub(gui.Text, "%s+", "") -- Xóa khoảng trắng thừa
+                            
+                            -- Khóa mục tiêu nếu thấy nút ghi chữ "Spawn" y hệt trong ảnh của bạn
+                            if string.lower(buttonText) == "spawn" then
+                                -- Kiểm tra nếu nút đang xuất hiện và có kích thước thật trên màn hình
+                                if gui.AbsoluteSize.X > 0 and gui.AbsoluteSize.Y > 0 then
+                                    pcall(function()
+                                        -- Lớp 1: Gửi lệnh kích hoạt gốc
+                                        gui:Activate()
+                                        
+                                        -- Lớp 2: Mô phỏng hành động CLICK CHẠM TAY VÀO MÀN HÌNH ĐIỆN THOẠI (Lookat đúng tâm nút xanh)
+                                        local posX = gui.AbsolutePosition.X + (gui.AbsoluteSize.X / 2)
+                                        local posY = gui.AbsolutePosition.Y + (gui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
+                                        
+                                        -- Nhấp chuột xuống và nhấc chuột lên tại tâm nút Spawn
+                                        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
+                                        task.wait(0.05)
+                                        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
+                                        
+                                        -- Lớp 3: Kích hoạt tất cả các hàm sự kiện OnClick ẩn của nút
+                                        if getconnections then
+                                            for _, con in pairs(getconnections(gui.MouseButton1Click)) do con:Fire() end
+                                            for _, con in pairs(getconnections(gui.MouseButton1Down)) do con:Fire() end
+                                            for _, con in pairs(getconnections(gui.Activated)) do con:Fire() end
+                                        end
+                                    end)
+                                end
+                            end
                         end 
                     end 
-                end 
+                end
             end 
-        end 
+        end
     end 
 end)
-
 
 -- ====================================================================
 -- PHẦN 2: KHỞI CHẠY MENU, ĐÈN LED RGB VÀ LOGIC TÍNH NĂNG FARM QUÁI
@@ -208,7 +231,7 @@ local function isTargetNPC(name)
 end
 
 FarmTab:CreateToggle({
-    Name = "Auto Farm Mobs (Máu < 1000)",
+    Name = "Auto Farm Mobs (Máu < 2000)",
     CurrentValue = false,
     Callback = function(Value)
         _G.AutoFarm = Value
@@ -226,7 +249,7 @@ FarmTab:CreateToggle({
                             for _, obj in pairs(workspace:GetDescendants()) do
                                 if not fakeMonsterBlacklist[obj] then
                                     local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
-                                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 1000 then
+                                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 2000 then
                                         local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
                                         if not isPlayer and obj.Name ~= localPlayer.Name then
                                             if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
@@ -363,18 +386,106 @@ TeleportTab:CreateToggle({
     Callback = function(Value)
         if Value then teleportToIsland("Sam's Island") end
     end
-})TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Flag location 1",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Flag 1") end
+-- ====================================================================
+-- PHẦN 3: LOGIC MỤC COMPASS THÔNG MINH (ĐÃ FIX LỖI ẨN MỤC DANH MỤC)
+-- ====================================================================
+local lastD = Vector3.new(0,0,0) 
+local sTim = 0
+
+-- 🌟 NÚT 1: TELEPORT NHẶT LA BÀN RƠI TRÊN ĐẤT
+tab3:CreateToggle({
+    Name = "Teleport nhặt Compass rơi trên đất", 
+    CurrentValue = false, 
+    Callback = function(v) 
+        _G.AutoPickCompass = v 
+        if _G.AutoPickCompass then 
+            task.spawn(function() 
+                while _G.AutoPickCompass do 
+                    task.wait(0.1) 
+                    local char = lp.Character 
+                    if char and char:FindFirstChild("HumanoidRootPart") then 
+                        local mr = char.HumanoidRootPart 
+                        local tC = nil 
+                        for _, o in pairs(workspace:GetDescendants()) do 
+                            if string.find(string.lower(o.Name), "compass") then 
+                                if o:IsA("Tool") and o:FindFirstChild("Handle") then 
+                                    tC = o.Handle break 
+                                elseif o:IsA("BasePart") and not o:IsAncestorOf(char) then 
+                                    tC = o break 
+                                end 
+                            end 
+                        end 
+                        if tC then 
+                            mr.Anchored = true 
+                            mr.CFrame = tC.CFrame * CFrame.new(0, 2, 0) 
+                            task.wait(0.2) 
+                            mr.Anchored = false 
+                        end 
+                    end 
+                end 
+            end) 
+        end 
     end
 })
-})TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Flag location 2",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Flag 2") end
+
+-- 🌟 NÚT 2: BAY SIÊU TỐC THEO KIM ĐỎ VÀ TỰ ĐÁP XUỐNG ĐÀO KHO BÁU
+tab3:CreateToggle({
+    Name = "Bay theo hướng la bàn chỉ", 
+    CurrentValue = false, 
+    Callback = function(v) 
+        _G.AutoFlyToCompassDirection = v 
+        if _G.AutoFlyToCompassDirection then 
+            lastD = Vector3.new(0,0,0) 
+            sTim = 0 
+            task.spawn(function() 
+                while _G.AutoFlyToCompassDirection do 
+                    task.wait(0.01) 
+                    local char = lp.Character 
+                    if char and char:FindFirstChild("HumanoidRootPart") then 
+                        local mr = char.HumanoidRootPart 
+                        local bpc = lp.Backpack:FindFirstChild("Compass") 
+                        if bpc then bpc.Parent = char end 
+                        local hc = char:FindFirstChild("Compass") 
+                        
+                        if hc then 
+                            pcall(function() hc:Activate() end)
+                            
+                            -- Quét tìm bộ phận mũi kim của la bàn game
+                            local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part") 
+                            local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector 
+                            local fd = Vector3.new(rd.X, 0, rd.Z).Unit 
+                            local aC = math.acos(math.clamp(lastD:Dot(fd), -1, 1))
+                            
+                            -- Nếu la bàn quay loạn nghĩa là đã đến bãi kho báu
+                            if aC > math.rad(90) and lastD.Magnitude > 0 then 
+                                sTim = sTim + 1 
+                                if sTim > 10 then 
+                                    mr.Anchored = false 
+                                    for i = 1, 30 do 
+                                        task.wait(0.05) 
+                                        pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end) 
+                                    end 
+                                    sTim = 0 
+                                    mr.CFrame = CFrame.new(mr.Position.X, 70, mr.Position.Z) 
+                                end
+                            else 
+                                sTim = 0 
+                                mr.Anchored = true
+                                -- Tiến hành tịnh tiến bay thẳng trên trời cao cố định 70 studs
+                                local np = mr.Position + (fd * 12) 
+                                mr.CFrame = CFrame.new(Vector3.new(np.X, 70, np.Z), Vector3.new(np.X + fd.X, 70, np.Z + fd.Z))
+                            end 
+                            lastD = fd
+                        else 
+                            mr.Anchored = false 
+                        end 
+                    end 
+                end 
+                if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.Anchored = false end 
+            end) 
+        else 
+            if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.Anchored = false end 
+        end 
     end
 })
 
