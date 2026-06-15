@@ -362,20 +362,7 @@ TeleportTab:CreateToggle({
         if Value then teleportToIsland("Sam's Island") end
         end
 })
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Flag 1",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Flag") end
-        end
-})
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Flag 2",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Flag2") end
-        end
-})
+
 -- ====================================================================
 -- PHẦN ĐUÔI COMPASS MỚI: ĐÃ ĐỒNG BỘ CHUẨN BIẾN TAB3 (HIỆN MENU 100%)
 -- ====================================================================
