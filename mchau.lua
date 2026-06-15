@@ -65,7 +65,6 @@ function MyLibrary:CreateWindow(titleText)
 
     local TabCount = 0
     local Tabs = {}
-
     local LibraryMethods = {}
 
     -- Hàm tạo một Mục mới (Tab)
@@ -173,7 +172,7 @@ function MyLibrary:CreateWindow(titleText)
 end
 
 -- ====================================================================
--- PHẦN 2: LOGIC AUTO SPAWN (TỰ BẤM NÚT HỒI SINH)
+-- PHẦN 2: LOGIC AUTO SPAWN (TỰ BẤM NÚT HỒI SINH NHANH)
 -- ====================================================================
 local PlayersService = game:GetService("Players")
 local localPlayer = PlayersService.LocalPlayer
@@ -189,10 +188,7 @@ task.spawn(function()
                 for _, gui in pairs(playerGui:GetDescendants()) do
                     if gui:IsA("TextButton") or gui:IsA("ImageButton") then
                         local buttonText = string.lower(gui.Name)
-                        if gui:IsA("TextButton") then 
-                            buttonText = buttonText .. string.lower(gui.Text) 
-                        end
-                        
+                        if gui:IsA("TextButton") then buttonText = buttonText .. string.lower(gui.Text) end
                         if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then
                             if gui.Visible and gui.AbsoluteSize.X > 0 then
                                 pcall(function()
@@ -208,9 +204,8 @@ task.spawn(function()
         end
     end
 end)
-
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU VỚI THANH TAB & CONFIG AUTO FARM
+-- PHẦN 3: KHỞI CHẠY MENU VỚI THANH TAB & CONFIG AUTO FARM (ĐẦY ĐỦ)
 -- ====================================================================
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Premium Hub v2 🚀")
 
@@ -222,6 +217,7 @@ _G.AutoFarm = false
 
 -- Danh sách chính xác các NPC bạn muốn farm trên toàn map
 local targetNPCs = {
+    "Bandit",
     "Thug",
     "Angry bob",
     "Angry Freddy",
