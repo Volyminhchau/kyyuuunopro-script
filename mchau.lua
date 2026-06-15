@@ -362,13 +362,14 @@ TeleportTab:CreateToggle({
         if Value then teleportToIsland("Sam's Island") end
         end
 })
+
 -- ====================================================================
--- PHẦN 4: LOGIC MỤC COMPASS SIÊU CẤP TWEEN PHẲNG CHỐNG KẸT NÚT CHẠY
+-- PHẦN 4: HỆ THỐNG COMPASS VẬT LÝ TOÀN NĂNG - VÁ LỖI ĐỨNG IM TUYỆT ĐỐI
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
 local tab3 = MainMenu:CreateTab("Compass 🧭")
--- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (ĐÃ VÁ LỖI CÚ PHÁP)
+-- 🌟 NÚT 1: TELEPORT HÚT LA BÀN RƠI TRÊN ĐẤT (BẤT CHẤP TÊN GỌI)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -381,25 +382,23 @@ tab3:CreateToggle({
                     local char = lp.Character
                     if char and char:FindFirstChild("HumanoidRootPart") then
                         local mr = char.HumanoidRootPart
-                        local targetC = nil
-                        
-                        -- Quét tìm la bàn rơi rải rác trên bản đồ
+                        -- Quét tìm khối gạch có thuộc tính nhặt được rơi tự do quanh map
                         for _, o in pairs(workspace:GetDescendants()) do
-                            local oName = string.lower(o.Name)
-                            if string.find(oName, "compass") or string.find(oName, "la ban") then
-                                if o:IsA("Tool") and o:FindFirstChild("Handle") then
-                                    targetC = o.Handle break
-                                elseif o:IsA("BasePart") and not o:IsAncestorOf(char) then
-                                    targetC = o break
+                            if o:IsA("Tool") and string.find(string.lower(o.Name), "com") then
+                                if o:FindFirstChild("Handle") then
+                                    mr.Anchored = true
+                                    mr.CFrame = o.Handle.CFrame * CFrame.new(0, 2, 0)
+                                    task.wait(0.2)
+                                    mr.Anchored = false
+                                    break
                                 end
+                            elseif o:IsA("BasePart") and string.find(string.lower(o.Name), "comp") and not o:IsAncestorOf(char) then
+                                mr.Anchored = true
+                                mr.CFrame = o.CFrame * CFrame.new(0, 2, 0)
+                                task.wait(0.2)
+                                mr.Anchored = false
+                                break
                             end
-                        end
-                        
-                        if targetC then
-                            mr.Anchored = true
-                            mr.CFrame = targetC.CFrame * CFrame.new(0, 2, 0)
-                            task.wait(0.2)
-                            mr.Anchored = false
                         end
                     end
                 end
@@ -408,7 +407,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: BAY TỰ ĐỘNG THEO TỌA ĐỘ ĐÍCH CỦA LA BÀN CHỐNG KHÓA CHÂN CHUẨN XÁC
+-- 🌟 NÚT 2: CƯỠNG ÉP NHẤC BỔNG VÀ BAY SIÊU TỐC X25 THEO LA BÀN HƯỚNG PHẲNG
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -424,83 +423,59 @@ tab3:CreateToggle({
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and char:FindFirstChildOfClass("Humanoid") then
-                        -- Tự lôi la bàn ra cầm trên tay
-                        local bpc = lp.Backpack:FindFirstChild("Compass") or lp.Backpack:FindFirstChild("compass")
-                        if bpc then bpc.Parent = char end
+                        -- Tự động kiểm tra lôi món đồ la bàn trong balo ra cầm trên tay
+                        for _, item in pairs(lp.Backpack:GetChildren()) do
+                            if string.find(string.lower(item.Name), "com") or string.find(string.lower(item.Name), "la") then
+                                item.Parent = char
+                            end
+                        end
                         
-                        local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass")
-                        if hc then
-                            pcall(function() hc:Activate() end)
+                        -- Tìm món đồ đang cầm trên tay
+                        local tool = char:FindFirstChildOfClass("Tool")
+                        if tool then
+                            pcall(function() tool:Activate() end) -- Ép la bàn kích hoạt dò hướng liên tục
                             
-                            -- Bẻ khóa thuộc tính đóng băng chân của game
-                            mr.Anchored = false
-                            for _, p in pairs(char:GetChildren()) do
-                                if p:IsA("BasePart") then p.Anchored = false end
-                            end
+                            -- ĐO PHÉP TOÁN VECTOR PHẲNG ĐỂ ĐUỔI THEO KIM ĐỎ CHUẨN XÁC
+                            local lookDir = mr.CFrame.LookVector
+                            -- Quét sâu tìm xem la bàn có chứa bộ phận quay hướng nào không
+                            local part = tool:FindFirstChild("Needle") or tool:FindFirstChild("Pointer") or tool:FindFirstChild("Arrow") or tool:FindFirstChild("Handle") or tool:FindFirstChildOfClass("MeshPart") or tool:FindFirstChildOfClass("Part")
+                            if part then lookDir = part.CFrame.LookVector end
                             
-                            local targetPos = nil
+                            -- Triệt tiêu hướng Y đâm đầu xuống nước, khóa hướng X và Z phẳng
+                            local flatDirection = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
                             
-                            -- Dò tìm tia định vị (Beam) nối từ la bàn ra đảo ẩn
-                            for _, child in pairs(workspace:GetDescendants()) do
-                                if child:IsA("Beam") and (child.Attachment0 and child.Attachment0:IsAncestorOf(char) or child.Attachment1 and child.Attachment1:IsAncestorOf(char)) then
-                                    local targetAttachment = child.Attachment1 or child.Attachment0
-                                    if targetAttachment and targetAttachment.Parent then
-                                        targetPos = targetAttachment.Parent.Position break
-                                    end
-                                end
-                            end
+                            -- Khóa trọng lực để đứng lơ lửng trên không trung
+                            mr.Anchored = true
                             
-                            -- Dò tìm điểm đánh dấu Waypoint ẩn
-                            if not targetPos then
-                                for _, obj in pairs(workspace:GetChildren()) do
-                                    local lowerObj = string.lower(obj.Name)
-                                    if string.find(lowerObj, "waypoint") or string.find(lowerObj, "destination") or string.find(lowerObj, "target") then
-                                        if obj:IsA("BasePart") then targetPos = obj.Position break
-                                        elseif obj:IsA("Vector3Value") then targetPos = obj.Value break end
-                                    end
-                                end
-                            end
-                            
-                            -- Đọc hướng từ kim xoay la bàn
-                            local flyDir = mr.CFrame.LookVector
-                            local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle")
-                            if nd then flyDir = nd.CFrame.LookVector end
-                            local flatDirection = Vector3.new(flyDir.X, 0, flyDir.Z).Unit
-                            
-                            mr.Anchored = true -- Khóa trọng lực để bay lơ lửng an toàn
-                            
-                            if targetPos then
-                                local distanceVector = Vector3.new(targetPos.X - mr.Position.X, 0, targetPos.Z - mr.Position.Z)
-                                if distanceVector.Magnitude > 15 then
-                                    local dirToIsland = distanceVector.Unit
-                                    local nextPos = mr.Position + (dirToIsland * 15)
-                                    mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 80, nextPos.Z), Vector3.new(nextPos.X + dirToIsland.X, 80, nextPos.Z + dirToIsland.Z))
-                                else
+                            -- Bộ phát hiện khi la bàn quay loạn (Báo hiệu đã tới bãi kho báu)
+                            local angleChange = math.acos(math.clamp(lastD:Dot(flatDirection), -1, 1))
+                            if angleChange > math.rad(90) and lastD.Magnitude > 0 then
+                                sTim = sTim + 1
+                                if sTim > 8 then
+                                    -- ĐÃ ĐẾN NƠI: Thả rơi nhẹ xuống bãi đất bãi cỏ để đào rương
                                     mr.Anchored = false
+                                    -- Kích hoạt đòn đánh/đào ảo liên hoàn x30 lần
                                     for i = 1, 30 do
-                                        task.wait(0.05)
+                                        task.wait(0.04)
                                         pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                     end
-                                    _G.AutoFlyToCompassDirection = false
+                                    sTim = 0
+                                    -- Đào xong ép vọt lên trời cao lại để bay đi săn mục tiêu khác
+                                    mr.CFrame = CFrame.new(mr.Position.X, 70, mr.Position.Z)
                                 end
                             else
-                                local angleChange = math.acos(math.clamp(lastD:Dot(flatDirection), -1, 1))
-                                if angleChange > math.rad(90) and lastD.Magnitude > 0 then
-                                    sTim = sTim + 1
-                                    if sTim > 10 then
-                                        mr.Anchored = false
-                                        for i = 1, 30 do task.wait(0.05) pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end) end
-                                        sTim = 0 mr.CFrame = CFrame.new(mr.Position.X, 80, mr.Position.Z)
-                                    end
-                                else
-                                    sTim = 0
-                                    local nextPos = mr.Position + (flatDirection * 12)
-                                    mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 80, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, 80, nextPos.Z + flatDirection.Z))
-                                end
-                                lastD = flatDirection
+                                sTim = 0
+                                -- 🌟 TÍNH TỌA ĐỘ ĐIỂM TIẾP THEO VỚI TỐC ĐỘ X25 CỰC KỲ XÉ GIÓ
+                                local nextPos = mr.Position + (flatDirection * 25)
+                                
+                                -- 🌟 ÉP CHẶT TRỤC Y KHÓA CỨNG Ở ĐỘ CAO 70 STUDS: Tuyệt đối không bao giờ bị rơi hay đâm xuống nước biển
+                                mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 70, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, 70, nextPos.Z + flatDirection.Z))
                             end
+                            lastD = flatDirection
                         else
-                            mr.Anchored = false
+                            -- Nếu chưa cầm la bàn trên tay thì tạm thời giữ nhân vật đứng lơ lửng trên trời chờ bạn cầm la bàn
+                            mr.Anchored = true
+                            mr.CFrame = CFrame.new(mr.Position.X, 70, mr.Position.Z)
                         end
                     end
                 end
