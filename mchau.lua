@@ -367,7 +367,7 @@ TeleportTab:CreateToggle({
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
-local tab3 = Menu:CreateTab("Compass 🧭")
+local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (ĐÃ VÁ LỖI CÚ PHÁP)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
