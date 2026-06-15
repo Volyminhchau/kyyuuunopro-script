@@ -84,33 +84,43 @@ function MyLibrary:CreateWindow(titleText)
 end
 
 -- ====================================================================
--- PHẦN 2: LOGIC HỒI SINH NHANH (AUTO SPAWN)
+-- PHẦN 2: LOGIC AUTO SPAWN (TỰ BẤM NÚT HỒI SINH)
 -- ====================================================================
 local PlayersService = game:GetService("Players")
 local localPlayer = PlayersService.LocalPlayer
+local VirtualUser = game:GetService("VirtualUser") -- Kích hoạt dịch vụ bấm chuột ảo hệ thống
 
--- Lắng nghe khi nhân vật xuất hiện
-localPlayer.CharacterAdded:Connect(function(character)
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    if humanoid then
-        -- Khi nhân vật hết máu (chết), gửi lệnh hồi sinh lập tức lên server
-        humanoid.Died:Connect(function()
-            task.wait(0.1) -- Chờ nhẹ 0.1 giây để tránh lỗi bộ nhớ game
-            localPlayer:RequestRespawn() -- Lệnh buộc Roblox hồi sinh nhân vật ngay
-        end)
+task.spawn(function()
+    while true do
+        task.wait(1)
+        local character = localPlayer.Character
+        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then
+            local playerGui = localPlayer:FindFirstChild("PlayerGui")
+            if playerGui then
+                for _, gui in pairs(playerGui:GetDescendants()) do
+                    if gui:IsA("TextButton") or gui:IsA("ImageButton") then
+                        local buttonText = string.lower(gui.Name)
+                        if gui:IsA("TextButton") then buttonText = buttonText .. string.lower(gui.Text) end
+                        
+                        -- Thêm từ khóa tiếng Việt phòng hờ game việt hóa (hồi sinh, vào game, chơi)
+                        if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then
+                            if gui.Visible and gui.AbsoluteSize.X > 0 then
+                                pcall(function()
+                                    gui:Activate()
+                                    for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end
+                                    for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
     end
 end)
 
--- Kích hoạt lệnh cho lần chạy đầu tiên nếu nhân vật đang sống sẵn
-if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
-    localPlayer.Character.Humanoid.Died:Connect(function()
-        task.wait(0.1)
-        localPlayer:RequestRespawn()
-    end)
-end
-
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU VÀ SETUP TÍNH NĂNG AUTO FARM + GOM QUÁI
+-- PHẦN 3: KHỞI CHẠY MENU VÀ TÍNH NĂNG AUTO FARM TỰ CLICK ĐÁNH
 -- ====================================================================
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
@@ -118,6 +128,7 @@ local _G = _G or {}
 _G.AutoFarm = false
 
 local targetNPCs = {
+    "Bandit",
     "Thug",
     "Angry bob",
     "Angry Freddy",
@@ -136,16 +147,15 @@ local function isTargetNPC(name)
 end
 
 MainMenu:CreateToggle({
-    Name = "Auto Farm + Gom Quái (Toàn Map)",
+    Name = "Auto Farm Toàn Map + Auto Click",
     CurrentValue = false,
     Callback = function(Value)
         _G.AutoFarm = Value
         
         if _G.AutoFarm then
-            -- VÒNG LẶP CHÍNH: TỰ ĐỘNG DỊCH CHUYỂN VÀ VUNG VŨ KHÍ
             task.spawn(function()
                 while _G.AutoFarm do
-                    task.wait(0.05)
+                    task.wait(0.02) -- Tốc độ vòng lặp cực nhanh để nhấp chuột liên tục
                     
                     local character = localPlayer.Character
                     if character then
@@ -155,7 +165,6 @@ MainMenu:CreateToggle({
                         if rootPart and humanoid and humanoid.Health > 0 then
                             local targetNPC = nil
                             
-                            -- Quét tìm con quái mục tiêu đầu tiên trên map
                             for _, obj in pairs(workspace:GetDescendants()) do
                                 if isTargetNPC(obj.Name) and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
                                     if obj:FindFirstChild("HumanoidRootPart") then
@@ -171,41 +180,20 @@ MainMenu:CreateToggle({
                                 -- Dịch chuyển ra sau lưng quái
                                 rootPart.CFrame = npcRoot.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
                                 
-                                -- Tự động vung vũ khí đánh lan liên tục
+                                -- 1. Tự động lôi vũ khí/công cụ ra cầm nếu chưa cầm sẵn
                                 local tool = character:FindFirstChildOfClass("Tool")
-                                if tool then 
-                                    tool:Activate() 
-                                else
+                                if not tool then
                                     local backpackTool = localPlayer.Backpack:FindFirstChildOfClass("Tool")
                                     if backpackTool then 
                                         backpackTool.Parent = character 
                                     end
                                 end
-                            end
-                        end
-                    end
-                end
-            end)
-
-            -- VÒNG LẶP PHỤ: LIÊN TỤC GOM TOÀN BỘ CÁC CON QUÁI CÒN LẠI VỀ MỘT CHỖ
-            task.spawn(function()
-                while _G.AutoFarm do
-                    task.wait(0.1)
-                    
-                    local character = localPlayer.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") then
-                        local myPos = character.HumanoidRootPart.CFrame
-                        
-                        -- Quét tìm toàn bộ quái và hút về trước mặt người chơi
-                        for _, obj in pairs(workspace:GetDescendants()) do
-                            if isTargetNPC(obj.Name) and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
-                                local npcRoot = obj:FindFirstChild("HumanoidRootPart")
-                                if npcRoot then
-                                    if obj:FindFirstChildOfClass("Humanoid") then
-                                        obj:FindFirstChildOfClass("Humanoid").WalkSpeed = 0
-                                    end
-                                    npcRoot.CFrame = myPos * CFrame.new(0, 0, -2)
-                                end
+                                
+                                -- 2. PHÉP THUẬT AUTO CLICK: Cưỡng ép hệ thống tự động chém/đấm liên hoàn
+                                pcall(function()
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:ClickButton1(Vector2.new(9999, 9999)) -- Nhấp chuột ảo liên tục lên màn hình
+                                end)
                             end
                         end
                     end
