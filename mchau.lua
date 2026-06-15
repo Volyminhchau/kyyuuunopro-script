@@ -365,13 +365,12 @@ TeleportTab:CreateToggle({
 
 
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS - TỰ ĐỘNG BỂ KHÓA ĐÓNG BĂNG CHÂN & ÉP BƯỚC ĐI
+-- PHẦN 3: LOGIC COMPASS TỐI TÂN - TỰ ĐỘNG DÒ TỌA ĐỘ ĐÍCH & TWEEN PHẲNG TRÊN CAO
 -- ====================================================================
-local lastD = Vector3.new(0, 0, 0)
+local lastD = Vector3.new(0,0,0)
 local sTim = 0
-local Platform = nil
 local tab3 = MainMenu:CreateTab("Compass 🧭")
--- NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (Giữ nguyên bản chuẩn)
+-- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (CẢI TIẾN QUÉT SÂU)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -384,19 +383,25 @@ tab3:CreateToggle({
                     local char = lp.Character
                     if char and char:FindFirstChild("HumanoidRootPart") then
                         local mr = char.HumanoidRootPart
-                        local tC = nil
+                        local targetC = nil
+                        
+                        -- Quét sâu toàn bộ không gian game để lùng sục la bàn rơi
                         for _, o in pairs(workspace:GetDescendants()) do
-                            if string.find(string.lower(o.Name), "compass") then
+                            local oName = string.lower(o.Name)
+                            if string.find(oName, "compass") or string.find(oName, "la ban") or string.find(oName, "laban") then
                                 if o:IsA("Tool") and o:FindFirstChild("Handle") then
-                                    tC = o.Handle break
-                                elseif o:IsA("BasePart") and not o:IsAncestorOf(char) then
-                                    tC = o break
+                                    targetC = o.Handle break
+                                table.insert(fMBL, o) -- Phòng hờ rác
+                                elseif o:IsA("BasePart") and not o:IsAncestorOf(char) and o.CanCollide then
+                                    targetC = o break
                                 end
                             end
                         end
-                        if tC then
+                        
+                        -- Dịch chuyển áp sát nhặt la bàn lập tức
+                        if targetC then
                             mr.Anchored = true
-                            mr.CFrame = tC.CFrame * CFrame.new(0, 2, 0)
+                            mr.CFrame = targetC.CFrame * CFrame.new(0, 2, 0)
                             task.wait(0.2)
                             mr.Anchored = false
                         end
@@ -407,95 +412,113 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: BẺ KHÓA ĐÓNG BĂNG VÀ CƯỠNG ÉP ĐI BỘ THEO KIM LA BÀN
+-- 🌟 NÚT 2: BAY TỰ ĐỘNG THEO TỌA ĐỘ ĐÍCH CỦA LA BÀN (TỐC ĐỘ CAO + CHỐNG KHÓA CHÂN)
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
-        
-        if Platform then pcall(function() Platform:Destroy() end) Platform = nil end
-        
         if _G.AutoFlyToCompassDirection then
             lastD = Vector3.new(0, 0, 0)
             sTim = 0
-            
-            -- Tạo tấm nền tàng hình giữ độ cao cách mặt nước 5 studs
-            pcall(function()
-                Platform = Instance.new("Part")
-                Platform.Name = "KyyGlowPlatform"
-                Platform.Size = Vector3.new(20, 1, 20)
-                Platform.Transparency = 1
-                Platform.Anchored = true
-                Platform.CanCollide = true
-                Platform.Parent = workspace
-            end)
-            
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
                     task.wait(0.01)
                     local char = lp.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
-                    local hum = char and char:FindFirstChildOfClass("Humanoid")
                     
-                    if mr and hum and hum.Health > 0 then
-                        -- 🌟 BỘ KHỬ ANCHOR: Quét và ép mở khóa chân liên tục chống game đóng băng
-                        mr.Anchored = false
-                        for _, part in pairs(char:GetChildren()) do
-                            if part:IsA("BasePart") then part.Anchored = false end
-                        end
-                        
-                        -- Tự lấy la bàn ra cầm trên tay
-                        local bpc = lp.Backpack:FindFirstChild("Compass")
+                    if mr and char:FindFirstChildOfClass("Humanoid") then
+                        -- Tự động lôi la bàn ra cầm trên tay (Kiểm tra cả tên viết thường/viết hoa)
+                        local bpc = lp.Backpack:FindFirstChild("Compass") or lp.Backpack:FindFirstChild("compass")
                         if bpc then bpc.Parent = char end
                         
-                        local hc = char:FindFirstChild("Compass")
+                        local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass")
                         if hc then
                             pcall(function() hc:Activate() end)
                             
-                            -- Quét tìm hướng la bàn
-                            local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part")
-                            local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
-                            local fd = Vector3.new(rd.X, 0, rd.Z).Unit
+                            -- Bẻ khóa thuộc tính đóng băng chân của cây la bàn game
+                            mr.Anchored = false
+                            for _, p in pairs(char:GetChildren()) do
+                                if p:IsA("BasePart") then p.Anchored = false end
+                            end
                             
-                            -- Kiểm tra nếu kim quay loạn (Đã tới bãi kho báu)
-                            local aC = math.acos(math.clamp(lastD:Dot(fd), -1, 1))
-                            if aC > math.rad(90) and lastD.Magnitude > 0 then
-                                sTim = sTim + 1
-                                if sTim > 10 then
-                                    if Platform then Platform.CanCollide = false end
-                                    -- Đào báu liên hoàn
+                            -- 🌟 THUẬT TOÁN DÒ TÌM TỌA ĐỘ ĐÍCH THỰC TẾ:
+                            local targetPos = nil
+                            
+                            -- Hướng A: Dò tìm tia sáng định vị (Beam/Attachment) nối từ la bàn ra đảo ẩn
+                            for _, child in pairs(workspace:GetDescendants()) do
+                                if child:IsA("Beam") and (child.Attachment0 and child.Attachment0:IsAncestorOf(char) or child.Attachment1 and child.Attachment1:IsAncestorOf(char)) then
+                                    local targetAttachment = child.Attachment1 or child.Attachment0
+                                    if targetAttachment and targetAttachment.Parent then
+                                        targetPos = targetAttachment.Parent.Position
+                                        break
+                                    end
+                                end
+                            end
+                            
+                            -- Hướng B: Dò tìm điểm đánh dấu Waypoint ẩn xuất hiện trong map khi cầm la bàn
+                            if not targetPos then
+                                for _, obj in pairs(workspace:GetChildren()) do
+                                    local lowerObj = string.lower(obj.Name)
+                                    if string.find(lowerObj, "waypoint") or string.find(lowerObj, "destination") or string.find(lowerObj, "island") or string.find(lowerObj, "target") then
+                                        if obj:IsA("BasePart") then targetPos = obj.Position break
+                                        elseif obj:IsA("Vector3Value") then targetPos = obj.Value break end
+                                    end
+                                end
+                            end
+                            
+                            -- Hướng C: Đọc dữ liệu từ mũi kim chỉ hướng (Gốc CFrame phẳng)
+                            local flyDir = mr.CFrame.LookVector
+                            local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart")
+                            if nd then flyDir = nd.CFrame.LookVector end
+                            local flatDirection = Vector3.new(flyDir.X, 0, flyDir.Z).Unit
+                            
+                            -- 🌟 TIẾN HÀNH DI CHUYỂN CƯỠNG ÉP (Cập nhật ma trận phẳng)
+                            mr.Anchored = true -- Khóa trọng lực để bay lơ lửng trên trời cao
+                            
+                            if targetPos then
+                                -- Nếu dò được tọa độ hòn đảo ẩn: Bay thẳng tới bãi biển đích
+                                local distanceVector = Vector3.new(targetPos.X - mr.Position.X, 0, targetPos.Z - mr.Position.Z)
+                                if distanceVector.Magnitude > 15 then
+                                    local dirToIsland = distanceVector.Unit
+                                    -- Tốc độ di chuyển x15 cực nhanh trên không trung cách biển 80 studs
+                                    local nextPos = mr.Position + (dirToIsland * 15)
+                                    mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 80, nextPos.Z), Vector3.new(nextPos.X + dirToIsland.X, 80, nextPos.Z + dirToIsland.Z))
+                                else
+                                    -- Đã đến đảo ẩn/kho báu: Thả rơi tự do xuống đất và kích hoạt tự đào
+                                    mr.Anchored = false
                                     for i = 1, 30 do
                                         task.wait(0.05)
                                         pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                     end
-                                    sTim = 0
-                                    if Platform then Platform.CanCollide = true end
+                                    _G.AutoFlyToCompassDirection = false -- Đào xong dừng lại
                                 end
                             else
-                                sTim = 0
-                                -- Cập nhật vị trí sàn tàng hình dưới chân
-                                if Platform then
-                                    Platform.CFrame = CFrame.new(mr.Position.X, 5, mr.Position.Z)
+                                -- Biện pháp dự phòng: Di chuyển lướt phẳng theo hướng mũi kim với tốc độ x12 trên cao 80 studs
+                                local angleChange = math.acos(math.clamp(lastD:Dot(flatDirection), -1, 1))
+                                if angleChange > math.rad(90) and lastD.Magnitude > 0 then
+                                    sTim = sTim + 1
+                                    if sTim > 10 then
+                                        mr.Anchored = false
+                                        for i = 1, 30 do task.wait(0.05) pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end) end
+                                        sTim = 0 mr.CFrame = CFrame.new(mr.Position.X, 80, mr.Position.Z)
+                                    end
+                                else
+                                    sTim = 0
+                                    local nextPos = mr.Position + (flatDirection * 12)
+                                    mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 80, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, 80, nextPos.Z + flatDirection.Z))
                                 end
-                                
-                                -- Ép hướng nhìn nhân vật quay theo kim la bàn
-                                mr.CFrame = CFrame.new(mr.Position, mr.Position + fd)
-                                
-                                -- 🌟 LỆNH CƯỠNG ÉP ĐI BỘ VẬT LÝ: Buộc hệ thống điều khiển chân bước đi xé gió
-                                hum:Move(fd, true)
-                                -- Bổ sung thêm lực đẩy phụ 1.8 studs để di chuyển nhanh hơn, mượt hơn trên biển
-                                mr.CFrame = mr.CFrame + (fd * 1.8)
+                                lastD = flatDirection
                             end
-                            lastD = fd
+                        else
+                            mr.Anchored = false
                         end
                     end
                 end
-                if Platform then pcall(function() Platform:Destroy() end) Platform = nil end
+                if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.Anchored = false end
             end)
         else
-            if Platform then pcall(function() Platform:Destroy() end) Platform = nil end
+            if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.Anchored = false end
         end
     end
 })
-
