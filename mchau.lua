@@ -205,7 +205,7 @@ task.spawn(function()
     end
 end)
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU - BỘ LỌC MIỄN NHIỄM VỚI NPC NHẬN QUEST
+-- PHẦN 3: KHỞI CHẠY MENU - BỘ LỌC MÁU THÔNG MINH (CHỐNG BÁM NPC QUEST)
 -- ====================================================================
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
@@ -215,9 +215,8 @@ local FarmTab = MainMenu:CreateTab("Farm ⚔️")
 local _G = _G or {}
 _G.AutoFarm = false
 
--- Danh sách tên quái cũ (vẫn giữ để ưu tiên nếu có)
+-- Danh sách tên quái cũ để ưu tiên quét trước
 local targetNPCs = {
-    "Freyd",
     "Bandit",
     "Thug",
     "Angry bob",
@@ -257,41 +256,44 @@ FarmTab:CreateToggle({
                             local targetNPC = nil
                             local targetPart = nil
                             
-                            -- VÒNG QUÉT BỘ LỌC THÔNG MINH CAO CẤP
+                            -- VÒNG QUÉT BỘ LỌC MÁU QUÁI VẬT TỐI TÂN
                             for _, obj in pairs(workspace:GetDescendants()) do
                                 local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
-                                if enemyHumanoid and enemyHumanoid.Health > 0 then
+                                
+                                -- 🌟 ĐIỀU KIỆN 1: Phải có Humanoid, đang còn sống, và máu tối đa phải LỚN HƠN 5 (Loại bỏ các NPC Quest máu = 0 hoặc 1)
+                                if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth > 5 then
                                     
-                                    -- Loại trừ chính bạn và người chơi khác
+                                    -- Loại trừ người chơi thật
                                     local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
                                     if not isPlayer and obj.Name ~= localPlayer.Name then
                                         
-                                        -- 🌟 BỘ LỌC CHỐNG ĐÁNH NPC QUEST: Kiểm tra xem có phải NPC giao quest không
-                                        local objNameLower = string.lower(obj.Name)
-                                        local isQuestNPC = false
-                                        
-                                        -- Nếu tên chứa chữ quest, giver, nạp, shop, hoặc có hội thoại đối thoại thì bỏ qua
-                                        if string.find(objNameLower, "quest") or string.find(objNameLower, "giver") or string.find(objNameLower, "shop") or obj:FindFirstChildOfClass("Dialog") or obj:FindFirstChild("Talk") then
-                                            isQuestNPC = true
-                                        end
-                                        
-                                        -- NẾU KHÔNG PHẢI NPC QUEST THÌ MỚI XÉT TIẾP ĐỂ ĐÁNH
-                                        if not isQuestNPC then
-                                            if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
-                                                
-                                                -- Tìm bộ phận gốc để bay tới
-                                                local part = obj:FindFirstChild("HumanoidRootPart") 
-                                                    or obj:FindFirstChild("Torso") 
-                                                    or obj:FindFirstChild("Head") 
-                                                    or obj:FindFirstChild("Base")
-                                                    or obj:FindFirstChildOfClass("MeshPart")
-                                                    or obj:FindFirstChildOfClass("Part")
-                                                
-                                                if part then
-                                                    targetNPC = obj
-                                                    targetPart = part
+                                        -- 🌟 ĐIỀU KIỆN 2: Kiểm tra cấu trúc đặt tên từ nhà làm game
+                                        if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
+                                            
+                                            -- Tìm bộ phận gốc để dịch chuyển đến
+                                            local part = obj:FindFirstChild("HumanoidRootPart") 
+                                                or obj:FindFirstChild("Torso") 
+                                                or obj:FindFirstChild("Head") 
+                                                or obj:FindFirstChild("Base")
+                                                or obj:FindFirstChildOfClass("MeshPart")
+                                                or obj:FindFirstChildOfClass("Part")
+                                            
+                                            -- 🌟 ĐIỀU KIỆN 3: Đảm bảo bộ phận này KHÔNG thuộc một Model có tên chứa chữ "Quest" hay "Giver"
+                                            local isQuestParent = false
+                                            local currentParent = obj.Parent
+                                            while currentParent and currentParent ~= workspace do
+                                                local parentName = string.lower(currentParent.Name)
+                                                if string.find(parentName, "quest") or string.find(parentName, "giver") or string.find(parentName, "dialog") then
+                                                    isQuestParent = true
                                                     break
                                                 end
+                                                currentParent = currentParent.Parent
+                                            end
+                                            
+                                            if part and not isQuestParent then
+                                                targetNPC = obj
+                                                targetPart = part
+                                                break -- Đã tìm thấy quái thực sự, dừng quét ngay
                                             end
                                         end
                                         
