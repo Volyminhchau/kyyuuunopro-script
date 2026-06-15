@@ -190,10 +190,8 @@ task.spawn(function()
 end)
 
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
-
 -- Tạo mục Farm ở thanh danh mục bên trái
 local FarmTab = MainMenu:CreateTab("Farm ⚔️")
-
 local _G = _G or {}
 _G.AutoFarm = false
 local fakeMonsterBlacklist = {} local currentTarget = nil local previousHealth = 0 local checkTimer = 0
@@ -274,7 +272,7 @@ FarmTab:CreateToggle({
 -- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN - KHÓA ĐỘ CAO CHỐNG RƠI LỌT ĐẤT
 -- ====================================================================
 -- Khởi tạo nút "Teleport 🌀" ở thanh bên trái nằm ngay dưới nút Farm
-local TeleportTab = MainMenu:CreateTab("Teleport 🌀")
+    local TeleportTab = MainMenu:CreateTab("Teleport 🌀")
 
 -- Hàm phụ trách dò tìm đảo và đưa người chơi đáp xuống GIỮA ĐẢO TRÊN CAO an toàn
 local function teleportToIsland(islandName)
@@ -364,8 +362,9 @@ TeleportTab:CreateToggle({
 })
 
 
+
 -- ====================================================================
--- PHẦN ĐUÔI COMPASS MỚI: ĐỒNG BỘ CHUẨN BIẾN TAB3 (CỦA CHÍNH CHỦ BẠN)
+-- PHẦN ĐUÔI COMPASS MỚI: ĐỒNG BỘ 100% BIẾN NGƯỜI CHƠI TRỰC TIẾP (FIX ĐỨNG IM)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
@@ -380,7 +379,8 @@ tab3:CreateToggle({
             task.spawn(function()
                 while _G.AutoPickCompass do
                     task.wait(0.1)
-                    local char = lp.Character
+                    local pObj = game:GetService("Players").LocalPlayer
+                    local char = pObj and pObj.Character
                     if char and char:FindFirstChild("HumanoidRootPart") then
                         local mr = char.HumanoidRootPart
                         local tC = nil
@@ -406,15 +406,17 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: LỰC ĐẨY SIÊU TỐC X180 TRÊN KHÔNG CAO 180 STUDS CHỐNG DÍNH NƯỚC
+-- 🌟 NÚT 2: SỬ DỤNG LỰC ĐẨY VẬT LÝ SIÊU TỐC X180 TRÊN KHÔNG CAO CHỐNG DÍNH NƯỚC
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
         
-        local char = lp.Character
+        local pObj = game:GetService("Players").LocalPlayer
+        local char = pObj and pObj.Character
         local mr = char and char:FindFirstChild("HumanoidRootPart")
+        local vU = game:GetService("VirtualUser")
         
         -- Dọn dẹp dứt điểm lực đẩy cũ khi tắt/bật lại nút công tắc
         if mr then
@@ -437,12 +439,12 @@ tab3:CreateToggle({
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
                     task.wait(0.01)
-                    char = lp.Character
+                    char = pObj.Character
                     mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and char:FindFirstChildOfClass("Humanoid") then
                         -- Tự lấy la bàn đeo lên người từ balo
-                        local bpc = lp.Backpack:FindFirstChild("Compass")
+                        local bpc = pObj.Backpack:FindFirstChild("Compass")
                         if bpc then bpc.Parent = char end
                         
                         local hc = char:FindFirstChild("Compass")
@@ -500,9 +502,9 @@ tab3:CreateToggle({
                 end
                 
                 -- Xóa bỏ hoàn toàn lực đẩy khi gạt công tắc TẮT hack
-                if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-                    local remVelo = lp.Character.HumanoidRootPart:FindFirstChild("KyyCompassVelo")
-                    local remGyro = lp.Character.HumanoidRootPart:FindFirstChild("KyyCompassGyro")
+                if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then
+                    local remVelo = pObj.Character.HumanoidRootPart:FindFirstChild("KyyCompassVelo")
+                    local remGyro = pObj.Character.HumanoidRootPart:FindFirstChild("KyyCompassGyro")
                     if remVelo then remVelo:Destroy() end
                     if remGyro then remGyro:Destroy() end
                 end
