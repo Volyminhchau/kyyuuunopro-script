@@ -354,6 +354,13 @@ TeleportTab:CreateToggle({
     end
 })
 TeleportTab:CreateToggle({
+    Name = "Dịch chuyển đến Big Snow",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then teleportToIsland("Big Snow") end
+    end
+})
+TeleportTab:CreateToggle({
     Name = "Dịch chuyển đến Sam's Island",
     CurrentValue = false,
     Callback = function(Value)
