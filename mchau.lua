@@ -205,7 +205,7 @@ task.spawn(function()
     end
 end)
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU VỚI LOGIC QUÉT VỊ TRÍ QUÁI VẬT TỰ CHẾ (FIX LỖI CUA)
+-- PHẦN 3: KHỞI CHẠY MENU - BỘ LỌC MIỄN NHIỄM VỚI NPC NHẬN QUEST
 -- ====================================================================
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
@@ -217,7 +217,7 @@ _G.AutoFarm = false
 
 -- Danh sách tên quái cũ (vẫn giữ để ưu tiên nếu có)
 local targetNPCs = {
-    "Freyd",
+    "Bandit",
     "Thug",
     "Angry bob",
     "Angry Freddy",
@@ -245,7 +245,7 @@ FarmTab:CreateToggle({
         if _G.AutoFarm then
             task.spawn(function()
                 while _G.AutoFarm do
-                    task.wait(0.02) -- Tốc độ vòng lặp tối ưu chống lag
+                    task.wait(0.02) -- Tốc độ vòng lặp tối ưu
                     
                     local character = localPlayer.Character
                     if character then
@@ -254,42 +254,52 @@ FarmTab:CreateToggle({
                         
                         if myRoot and myHumanoid and myHumanoid.Health > 0 then
                             local targetNPC = nil
-                            local targetPart = nil -- Bộ phận sẽ dùng để dịch chuyển tới
+                            local targetPart = nil
                             
-                            -- VÒNG QUÉT THÔNG MINH BẤT CHẤP CẤU TRÚC NPC
+                            -- VÒNG QUÉT BỘ LỌC THÔNG MINH CAO CẤP
                             for _, obj in pairs(workspace:GetDescendants()) do
-                                -- 1. Tìm thực thể có máu (Humanoid) và đang còn sống
                                 local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
                                 if enemyHumanoid and enemyHumanoid.Health > 0 then
                                     
-                                    -- 2. Đảm bảo thực thể này không phải là người chơi thật
+                                    -- Loại trừ chính bạn và người chơi khác
                                     local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
                                     if not isPlayer and obj.Name ~= localPlayer.Name then
                                         
-                                        -- 3. ĐIỀU KIỆN CHỌN: Tên khớp danh sách HOẶC quái không tên (như con cua)
-                                        if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
-                                            
-                                            -- 🌟 TÌM BỘ PHẬN GỐC DỰ PHÒNG: Tìm xem con cua có bộ phận nào di chuyển được không
-                                            local part = obj:FindFirstChild("HumanoidRootPart") 
-                                                or obj:FindFirstChild("Torso") 
-                                                or obj:FindFirstChild("Head") 
-                                                or obj:FindFirstChild("Base")
-                                                or obj:FindFirstChildOfClass("MeshPart")
-                                                or obj:FindFirstChildOfClass("Part") -- Chấp nhận cả khối gạch thông thường tạo nên cua
-                                            
-                                            if part then
-                                                targetNPC = obj
-                                                targetPart = part
-                                                break -- Đã tìm thấy mục tiêu hợp lệ, dừng quét ngay
+                                        -- 🌟 BỘ LỌC CHỐNG ĐÁNH NPC QUEST: Kiểm tra xem có phải NPC giao quest không
+                                        local objNameLower = string.lower(obj.Name)
+                                        local isQuestNPC = false
+                                        
+                                        -- Nếu tên chứa chữ quest, giver, nạp, shop, hoặc có hội thoại đối thoại thì bỏ qua
+                                        if string.find(objNameLower, "quest") or string.find(objNameLower, "giver") or string.find(objNameLower, "shop") or obj:FindFirstChildOfClass("Dialog") or obj:FindFirstChild("Talk") then
+                                            isQuestNPC = true
+                                        end
+                                        
+                                        -- NẾU KHÔNG PHẢI NPC QUEST THÌ MỚI XÉT TIẾP ĐỂ ĐÁNH
+                                        if not isQuestNPC then
+                                            if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
+                                                
+                                                -- Tìm bộ phận gốc để bay tới
+                                                local part = obj:FindFirstChild("HumanoidRootPart") 
+                                                    or obj:FindFirstChild("Torso") 
+                                                    or obj:FindFirstChild("Head") 
+                                                    or obj:FindFirstChild("Base")
+                                                    or obj:FindFirstChildOfClass("MeshPart")
+                                                    or obj:FindFirstChildOfClass("Part")
+                                                
+                                                if part then
+                                                    targetNPC = obj
+                                                    targetPart = part
+                                                    break
+                                                end
                                             end
                                         end
+                                        
                                     end
                                 end
                             end
                             
                             -- TIẾN HÀNH DỊCH CHUYỂN ÁP SÁT VÀ GIẢ LẬP ĐÁNH CUA
                             if targetNPC and targetPart then
-                                -- Áp sát cực cận 1.2 studs và xoay mặt khóa mục tiêu thẳng vào con cua
                                 local targetPosition = targetPart.Position + (targetPart.CFrame.LookVector * -1.2)
                                 myRoot.CFrame = CFrame.new(targetPosition, targetPart.Position)
                                 
@@ -302,7 +312,7 @@ FarmTab:CreateToggle({
                                     end
                                 end
                                 
-                                -- Giả lập click chuột liên hoàn ép vung vũ khí chém cua
+                                -- Giả lập click chuột liên hoàn ép vung vũ khí chém quái
                                 pcall(function()
                                     VirtualUser:CaptureController()
                                     VirtualUser:ClickButton1(Vector2.new(9999, 9999))
@@ -315,4 +325,5 @@ FarmTab:CreateToggle({
         end
     end
 })
+
 
