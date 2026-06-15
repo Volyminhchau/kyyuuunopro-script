@@ -1,7 +1,7 @@
 -- ====================================================================
 -- 1. DÁN LINK RAW FILE 1 CỦA BẠN VÀO ĐÂY ĐỂ TỰ ĐỘNG DỰNG GUI MENU
 -- ====================================================================
-local linkFile1 = "https://githubusercontent.com" -- Thay bằng link Raw File 1 của bạn
+local linkFile1 = "https://raw.githubusercontent.com/Volyminhchau/kyyuuunopro-script/refs/heads/main/main.lua" -- Thay bằng link Raw File 1 của bạn
 local myLibrary = loadstring(game:HttpGet(linkFile1))()
 
 -- ====================================================================
