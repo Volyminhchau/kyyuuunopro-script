@@ -363,13 +363,14 @@ TeleportTab:CreateToggle({
 
 
 
+local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN ĐUÔI COMPASS MỚI: ĐỒNG BỘ 100% BIẾN NGƯỜI CHƠI TRỰC TIẾP (FIX ĐỨNG IM)
+-- PHẦN ĐUÔI COMPASS MỚI: ĐÃ KHỬ LỖI CHIA CHO 0 (CHỐNG TUYỆT ĐỐI RƠI XUỐNG NƯỚC)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
-local tab3 = MainMenu:CreateTab("Compass 🧭")
--- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT
+
+-- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn của bạn)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -406,7 +407,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: SỬ DỤNG LỰC ĐẨY VẬT LÝ SIÊU TỐC X180 TRÊN KHÔNG CAO CHỐNG DÍNH NƯỚC
+-- 🌟 NÚT 2: BAY TRÊN MÂY 150 STUDS - TỐC ĐỘ X180 AN TOÀN CHỐNG CHÌM NƯỚC
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -418,7 +419,6 @@ tab3:CreateToggle({
         local mr = char and char:FindFirstChild("HumanoidRootPart")
         local vU = game:GetService("VirtualUser")
         
-        -- Dọn dẹp dứt điểm lực đẩy cũ khi tắt/bật lại nút công tắc
         if mr then
             local oldVelo = mr:FindFirstChild("KyyCompassVelo")
             local oldGyro = mr:FindFirstChild("KyyCompassGyro")
@@ -430,9 +430,9 @@ tab3:CreateToggle({
             lastD = Vector3.new(0, 0, 0)
             sTim = 0
             
-            -- Đưa nhân vật vọt thẳng lên trời cao 180 studs trước khi nạp lực di chuyển
+            -- Đưa nhân vật vọt thẳng lên tầng mây cao 150 studs trước để an toàn
             if mr then
-                mr.CFrame = CFrame.new(mr.Position.X, 180, mr.Position.Z)
+                mr.CFrame = CFrame.new(mr.Position.X, 150, mr.Position.Z)
                 task.wait(0.1)
             end
             
@@ -443,7 +443,6 @@ tab3:CreateToggle({
                     mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and char:FindFirstChildOfClass("Humanoid") then
-                        -- Tự lấy la bàn đeo lên người từ balo
                         local bpc = pObj.Backpack:FindFirstChild("Compass")
                         if bpc then bpc.Parent = char end
                         
@@ -451,7 +450,6 @@ tab3:CreateToggle({
                         if hc then
                             pcall(function() hc:Activate() end)
                             
-                            -- Khởi tạo lực đẩy vật lý bẻ gãy Anti-Cheat của Server game
                             local velo = mr:FindFirstChild("KyyCompassVelo") or Instance.new("BodyVelocity")
                             velo.Name = "KyyCompassVelo"
                             velo.MaxForce = Vector3.new(9e9, 9e9, 9e9) 
@@ -462,18 +460,24 @@ tab3:CreateToggle({
                             gyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
                             gyro.Parent = mr
                             
-                            -- Quét dò hướng kim la bàn chuẩn xác
+                            -- Quét hướng kim la bàn
                             local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part")
                             local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
-                            local fd = Vector3.new(rd.X, 0, rd.Z).Unit
                             
-                            -- Bộ phát hiện kim quay loạn khi đã đến bãi đào kho báu
-                            local aC = math.acos(math.clamp(lastD:Dot(fd), -1, 1))
+                            -- 🌟 VÁ LỖI TOÁN HỌC: Tránh lỗi chia cho 0 làm nhân vật rớt xuống biển
+                            local flatDirection = Vector3.new(rd.X, 0, rd.Z)
+                            if flatDirection.Magnitude > 0 then
+                                flatDirection = flatDirection.Unit
+                            else
+                                flatDirection = Vector3.new(mr.CFrame.LookVector.X, 0, mr.CFrame.LookVector.Z).Unit
+                            end
+                            
+                            -- Kiểm tra trạng thái kim quay loạn (Đến đích kho báu)
+                            local aC = math.acos(math.clamp(lastD:Dot(flatDirection), -1, 1))
                             if aC > math.rad(90) and lastD.Magnitude > 0 then
                                 sTim = sTim + 1
                                 if sTim > 10 then
-                                    -- ĐÃ ĐẾN NƠI: Tắt lực di chuyển, ép nhân vật rơi nhanh xuống đất để đào báu
-                                    velo.Velocity = Vector3.new(0, -50, 0)
+                                    velo.Velocity = Vector3.new(0, -60, 0)
                                     task.wait(0.3)
                                     velo.Velocity = Vector3.new(0, 0, 0)
                                     
@@ -482,18 +486,19 @@ tab3:CreateToggle({
                                         pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                     end
                                     sTim = 0
-                                    -- Đào xong tự động nhấc bổng lên trời cao lại để tiếp tục săn rương mới
-                                    mr.CFrame = CFrame.new(mr.Position.X, 180, mr.Position.Z)
+                                    mr.CFrame = CFrame.new(mr.Position.X, 150, mr.Position.Z)
                                     task.wait(0.1)
                                 end
                             else
                                 sTim = 0
-                                -- KHÓA TRỤC Y = 0: Lực đẩy chỉ di chuyển phẳng theo chiều ngang
-                                -- TỐC ĐỘ DI CHUYỂN SIÊU TỐC X180: Băng qua biển cực nhanh, không lo chìm nước
-                                velo.Velocity = Vector3.new(fd.X * 180, 0, fd.Z * 180)
-                                gyro.CFrame = CFrame.new(mr.Position, mr.Position + fd)
+                                -- 🌟 ÉP ĐỘ CAO KHÓA CỨNG TRÊN TRỜI: Cưỡng ép nhân vật luôn giữ mốc 150 studs lơ lửng, bẻ gãy Anti-cheat kéo chân
+                                mr.CFrame = CFrame.new(Vector3.new(mr.Position.X, 150, mr.Position.Z))
+                                
+                                -- Tốc độ đẩy ngang x180 cực xé gió thẳng hướng la bàn chỉ
+                                velo.Velocity = Vector3.new(flatDirection.X * 180, 0, flatDirection.Z * 180)
+                                gyro.CFrame = CFrame.new(mr.Position, mr.Position + flatDirection)
                             end
-                            lastD = fd
+                            lastD = flatDirection
                         else
                             local velo = mr:FindFirstChild("KyyCompassVelo")
                             if velo then velo.Velocity = Vector3.new(0, 0, 0) end
@@ -501,7 +506,6 @@ tab3:CreateToggle({
                     end
                 end
                 
-                -- Xóa bỏ hoàn toàn lực đẩy khi gạt công tắc TẮT hack
                 if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then
                     local remVelo = pObj.Character.HumanoidRootPart:FindFirstChild("KyyCompassVelo")
                     local remGyro = pObj.Character.HumanoidRootPart:FindFirstChild("KyyCompassGyro")
@@ -512,5 +516,6 @@ tab3:CreateToggle({
         end
     end
 })
+
 
 
