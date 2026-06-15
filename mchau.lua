@@ -12,7 +12,7 @@ local MainMenu = myLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 local _G = _G or {}
 _G.AutoFarm = false
 
--- Danh sách quái vật yêu cầu
+-- Danh sách quái vật yêu cầu của bạn
 local targetNPCs = {
     "Bandit",
     "Thug",
@@ -22,7 +22,7 @@ local targetNPCs = {
     "Gunslinger"
 }
 
--- Hàm kiểm tra tên quái thông minh (không phân biệt chữ hoa/thường)
+-- Hàm kiểm tra tên quái thông minh
 local function isTargetNPC(name)
     local lowerName = string.lower(name)
     for _, target in pairs(targetNPCs) do
@@ -34,8 +34,11 @@ local function isTargetNPC(name)
 end
 
 -- ====================================================================
--- 3. TẠO NÚT BẬT/TẮT VÀ LOGIC QUÉT QUÁI TOÀN DIỆN
+-- 3. TẠO NÚT BẬT/TẮT VÀ LOGIC FIX LỖI "PLAYERS"
 -- ====================================================================
+-- Sửa lỗi gọi Players an toàn bằng GetService
+local PlayersService = game:GetService("Players")
+
 MainMenu:CreateToggle({
     Name = "Auto Farm Custom Mobs (Toàn Map)",
     CurrentValue = false,
@@ -47,46 +50,44 @@ MainMenu:CreateToggle({
                 while _G.AutoFarm do
                     task.wait(0.05)
                     
-                    local player = game.Players.LocalPlayer
-                    local character = player.Character
-                    if character then
-                        local rootPart = character:FindFirstChild("HumanoidRootPart")
-                        local humanoid = character:FindFirstChildOfClass("Humanoid")
-                        
-                        if rootPart and humanoid and humanoid.Health > 0 then
-                            local targetNPC = nil
+                    -- Sử dụng PlayersService đã được sửa lỗi ở trên
+                    local player = PlayersService.LocalPlayer
+                    if player then
+                        local character = player.Character
+                        if character then
+                            local rootPart = character:FindFirstChild("HumanoidRootPart")
+                            local humanoid = character:FindFirstChildOfClass("Humanoid")
                             
-                            -- 🌟 CẢI TIẾN: Quét sâu vào toàn bộ game (cả Workspace và các thư mục lưu trữ ẩn)
-                            local scanObjects = {}
-                            for _, v in pairs(workspace:GetDescendants()) do table.insert(scanObjects, v) end
-                            for _, v in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do table.insert(scanObjects, v) end
-                            
-                            for _, obj in pairs(scanObjects) do
-                                if isTargetNPC(obj.Name) and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
-                                    -- Đảm bảo quái phải có bộ phận gốc để dịch chuyển tới
-                                    if obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Head") then
-                                        targetNPC = obj
-                                        break
+                            if rootPart and humanoid and humanoid.Health > 0 then
+                                local targetNPC = nil
+                                
+                                -- Quét toàn bộ map để tìm quái vật
+                                for _, obj in pairs(workspace:GetDescendants()) do
+                                    if isTargetNPC(obj.Name) and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
+                                        if obj:FindFirstChild("HumanoidRootPart") then
+                                            targetNPC = obj
+                                            break
+                                        end
                                     end
                                 end
-                            end
-                            
-                            -- HÀNH ĐỘNG DỊCH CHUYỂN VÀ GIẢ LẬP ĐÁNH
-                            if targetNPC then
-                                -- Ưu tiên dùng HumanoidRootPart, nếu không có thì lấy phần Đầu (Head) của quái
-                                local npcPart = targetNPC:FindFirstChild("HumanoidRootPart") or targetNPC:FindFirstChild("Head")
                                 
-                                if npcPart then
-                                    -- Dịch chuyển ra sau lưng quái
-                                    rootPart.CFrame = npcPart.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
+                                -- HÀNH ĐỘNG DỊCH CHUYỂN VÀ VUNG VŨ KHÍ
+                                if targetNPC then
+                                    local npcRoot = targetNPC.HumanoidRootPart
+                                    
+                                    -- Dịch chuyển ra sau lưng quái cách 2.5 studs
+                                    rootPart.CFrame = npcRoot.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
                                     
                                     -- Tự động vung vũ khí trên tay
                                     local tool = character:FindFirstChildOfClass("Tool")
                                     if tool then 
                                         tool:Activate() 
                                     else
+                                        -- Tự động lấy vũ khí từ Backpack ra nếu chưa cầm sẵn
                                         local backpackTool = player.Backpack:FindFirstChildOfClass("Tool")
-                                        if backpackTool then backpackTool.Parent = character end
+                                        if backpackTool then 
+                                            backpackTool.Parent = character 
+                                        end
                                     end
                                 end
                             end
