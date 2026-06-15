@@ -1,5 +1,5 @@
 -- ====================================================================
--- PHẦN 1: TỰ KHỞI TẠO GIAO DIỆN PHONG CÁCH TAB CAO CẤP + NÚT THU NHỎ VIP (FIX LED RGB)
+-- PHẦN 1: TỰ KHỞI TẠO GIAO DIỆN PHONG CÁCH TAB CAO CẤP + THANH LĂN MƯỢT MÀ
 -- ====================================================================
 local MyLibrary = {}
 
@@ -17,7 +17,6 @@ function MyLibrary:CreateWindow(titleText)
     
     local UICorner = Instance.new("UICorner") UICorner.CornerRadius = UDim.new(0, 14) UICorner.Parent = MainFrame
     
-    -- 🌟 ĐÃ SỬA: Xóa chữ "local" để vòng lặp LED RGB ở Phần 2 có thể điều khiển màu sắc
     Title = Instance.new("TextLabel") 
     Title.Size = UDim2.new(1, 0, 0, 45) Title.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
     Title.Text = "   " .. (titleText or "Menu Premium") Title.TextColor3 = Color3.fromRGB(255, 255, 255) Title.TextSize = 16
@@ -31,7 +30,6 @@ function MyLibrary:CreateWindow(titleText)
     
     local MinCorner = Instance.new("UICorner") MinCorner.CornerRadius = UDim.new(0, 6) MinCorner.Parent = CloseMinButton
     
-    -- 🌟 ĐÃ SỬA: Xóa chữ "local" để nút bấm tròn mở menu cũng nhấp nháy đèn LED liên tục
     OpenButton = Instance.new("TextButton") 
     OpenButton.Size = UDim2.new(0, 50, 0, 50) OpenButton.Position = UDim2.new(0, 20, 1, -70)
     OpenButton.BackgroundColor3 = Color3.fromRGB(45, 120, 255) OpenButton.Text = "OPEN" OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -54,8 +52,19 @@ function MyLibrary:CreateWindow(titleText)
     
     function LibraryMethods:CreateTab(tabName)
         TabCount = TabCount + 1
-        local TabContent = Instance.new("ScrollingFrame") TabContent.Size = UDim2.new(1, 0, 1, 0) TabContent.BackgroundTransparency = 1 TabContent.CanvasSize = UDim2.new(0, 0, 0, 0) TabContent.ScrollBarThickness = 4 TabContent.Visible = (TabCount == 1) TabContent.Parent = ContentContainer
+        local TabContent = Instance.new("ScrollingFrame") 
+        TabContent.Size = UDim2.new(1, 0, 1, 0) 
+        TabContent.BackgroundTransparency = 1 
+        TabContent.ScrollBarThickness = 4 
+        TabContent.Visible = (TabCount == 1) 
+        TabContent.Parent = ContentContainer
+        
+        -- 🌟 ĐÃ SỬA: Tự động tính toán kích thước chiều dài dựa theo số lượng nút bấm bên trong
+        TabContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        TabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+        
         local ContentLayout = Instance.new("UIListLayout") ContentLayout.Padding = UDim.new(0, 8) ContentLayout.Parent = TabContent
+        
         local TabButton = Instance.new("TextButton") TabButton.Size = UDim2.new(0, 115, 0, 38) TabButton.BackgroundColor3 = (TabCount == 1) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(35, 35, 45) TabButton.Text = tabName TabButton.TextColor3 = Color3.fromRGB(255, 255, 255) TabButton.TextSize = 14 TabButton.Font = Enum.Font.SourceSansBold TabButton.Parent = Sidebar
         local ButtonCorner = Instance.new("UICorner") ButtonCorner.CornerRadius = UDim.new(0, 8) ButtonCorner.Parent = TabButton
         table.insert(Tabs, {Button = TabButton, Content = TabContent})
@@ -84,7 +93,6 @@ end
 
 local PlayersService = game:GetService("Players") local localPlayer = PlayersService.LocalPlayer local VirtualUser = game:GetService("VirtualUser")
 task.spawn(function() while true do task.wait(1) local character = localPlayer.Character if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then local playerGui = localPlayer:FindFirstChild("PlayerGui") if playerGui then for _, gui in pairs(playerGui:GetDescendants()) do if gui:IsA("TextButton") or gui:IsA("ImageButton") then local buttonText = string.lower(gui.Name) if gui:IsA("TextButton") then buttonText = buttonText .. string.lower(gui.Text) end if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then if gui.Visible and gui.AbsoluteSize.X > 0 then pcall(function() gui:Activate() for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end end) end end end end end end end end)
-
 
 
 -- ====================================================================
@@ -233,7 +241,7 @@ TeleportTab:CreateToggle({
     Name = "Dịch chuyển đến Piramid Island",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then teleportToIsland("Piramid Island") end
+        if Value then teleportToIsland("Piramid") end
     end
 })
 
@@ -259,10 +267,24 @@ TeleportTab:CreateToggle({
     end
 })
 TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Purple",
+    Name = "Dịch chuyển đến small",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then teleportToIsland("Purple") end
+        if Value then teleportToIsland("Small snow") end
+    end
+})
+TeleportTab:CreateToggle({
+    Name = "Dịch chuyển đến small",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then teleportToIsland("Small") end
+    end
+})
+TeleportTab:CreateToggle({
+    Name = "Dịch chuyển đến small",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then teleportToIsland("Small snow") end
     end
 })
 
