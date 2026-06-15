@@ -232,10 +232,10 @@ end
 -- TẠO CÁC NÚT DỊCH CHUYỂN BÊN TRONG MỤC TELEPORT
 -- ⚠️ Hãy nhớ thay thế chữ tiếng Anh trong dấu "" thành tên hòn đảo thật trong game của bạn nhé!
 TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Piramid Island",
+    Name = "Dịch chuyển đến Pyramid Island",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then teleportToIsland("Piramid") end
+        if Value then teleportToIsland("Pyramid") end
     end
 })
 
@@ -267,19 +267,6 @@ TeleportTab:CreateToggle({
         if Value then teleportToIsland("Small snow") end
     end
 })
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến small",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Small") end
-    end
-})
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến small",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Small snow") end
-    end
-})
+
 
 
