@@ -205,7 +205,7 @@ task.spawn(function()
     end
 end)
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU VỚI THANH TAB & CONFIG AUTO FARM (ĐÃ SỬA GÓC QUAY)
+-- PHẦN 3: KHỞI CHẠY MENU VỚI LOGIC TỰ NHẬN DIỆN QUÁI KHÔNG TÊN
 -- ====================================================================
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
@@ -215,7 +215,7 @@ local FarmTab = MainMenu:CreateTab("Farm ⚔️")
 local _G = _G or {}
 _G.AutoFarm = false
 
--- Danh sách chính xác các NPC bạn muốn farm trên toàn map
+-- Danh sách các NPC có tên (giữ nguyên để ưu tiên săn lùng trước)
 local targetNPCs = {
     "Thug",
     "Angry bob",
@@ -224,7 +224,7 @@ local targetNPCs = {
     "Gunslinger"
 }
 
--- Hàm kiểm tra thông minh xem tên quái có nằm trong danh sách không
+-- Hàm kiểm tra quái có tên trong danh sách
 local function isTargetNPC(name)
     local lowerName = string.lower(name)
     for _, target in pairs(targetNPCs) do
@@ -255,22 +255,35 @@ FarmTab:CreateToggle({
                         if rootPart and humanoid and humanoid.Health > 0 then
                             local targetNPC = nil
                             
-                            -- Quét toàn bộ map tìm quái vật còn sống
+                            -- 🌟 CẢI TIẾN BỘ LỌC QUÉT QUÁI THÔNG MINH
                             for _, obj in pairs(workspace:GetDescendants()) do
-                                if isTargetNPC(obj.Name) and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
-                                    if obj:FindFirstChild("HumanoidRootPart") then
-                                        targetNPC = obj
-                                        break
+                                -- 1. Tìm các sinh vật có Humanoid và còn sống
+                                local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
+                                if enemyHumanoid and enemyHumanoid.Health > 0 then
+                                    
+                                    -- 2. Đảm bảo sinh vật này KHÔNG PHẢI là chính bạn hoặc người chơi khác
+                                    local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
+                                    if not isPlayer and obj.Name ~= localPlayer.Name then
+                                        
+                                        -- 3. Đảm bảo quái có vị trí gốc để bay tới
+                                        if obj:FindFirstChild("HumanoidRootPart") then
+                                            
+                                            -- ĐIỀU KIỆN CHỌN: Có tên trong danh sách HOẶC tên bị để trống/không có tên
+                                            if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 1 then
+                                                targetNPC = obj
+                                                break -- Tìm thấy quái hợp lệ lập tức khóa mục tiêu
+                                            end
+                                        end
                                     end
                                 end
                             end
                             
-                            -- Thực hiện dịch chuyển và click tấn công
+                            -- Thực hiện dịch chuyển áp sát 1.2 studs và click tấn công
                             if targetNPC then
                                 local npcRoot = targetNPC.HumanoidRootPart
                                 
-                                -- [SỬA LỖI TẠI ĐÂY]: Tính vị trí sau lưng và ép xoay mặt nhìn thẳng vào NPC
-                                local targetPosition = npcRoot.Position + (npcRoot.CFrame.LookVector * -2.5)
+                                -- Áp sát cực cận 1.2 studs và xoay mặt khóa mục tiêu
+                                local targetPosition = npcRoot.Position + (npcRoot.CFrame.LookVector * -1.2)
                                 rootPart.CFrame = CFrame.new(targetPosition, npcRoot.Position)
                                 
                                 -- Tự động trang bị vũ khí trên tay
