@@ -365,12 +365,12 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC MỤC COMPASS - TWEEN PHẲNG TRÊN CAO + BẤT TỬ NƯỚC BIỂN (ANTI-CHEAT BYPASS)
+-- PHẦN 3: LOGIC COMPASS TỐI TÂN - TỰ ĐỘNG BAY CAO CÁCH MẶT ĐẤT/MẶT NƯỚC 45 STUDS
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
 
--- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (Bản chuẩn của bạn)
+-- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (Giữ nguyên bản chuẩn của bạn)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -407,7 +407,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: TWEEN PHẲNG TRÊN KHÔNG CAO + BẤT TỬ NƯỚC BIỂN KHÔNG MẤT MÁU
+-- 🌟 NÚT 2: CƠ CHẾ XE BAY PREMIUM - LUÔN GIỮ ĐỘ CAO 45 STUDS SO VỚI MẶT ĐẤT/MẶT BIỂN BÊN DƯỚI
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -422,8 +422,6 @@ tab3:CreateToggle({
             sTim = 0
             
             task.spawn(function()
-                -- 🌟 VÒNG LẶP LIÊN TỤC KHÓA TRẠNG THÁI BẤT TỬ DƯỚI NƯỚC:
-                -- Hễ game kích hoạt vùng nước biển gây sát thương, script sẽ triệt tiêu ngay lập tức
                 while _G.AutoFlyToCompassDirection do
                     task.wait(0.01)
                     local char = pObj.Character
@@ -431,7 +429,7 @@ tab3:CreateToggle({
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- Tự động bật tính năng cầm la bàn
+                        -- Tự động lấy la bàn ra cầm
                         local bpc = pObj.Backpack:FindFirstChild("Compass")
                         if bpc then bpc.Parent = char end
                         
@@ -443,7 +441,7 @@ tab3:CreateToggle({
                             local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part")
                             local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
                             
-                            -- Khử hoàn toàn lỗi chia cho 0 làm rớt nhân vật
+                            -- Khử lỗi chia cho 0 gây crash nhân vật
                             local flatDirection = Vector3.new(rd.X, 0, rd.Z)
                             if flatDirection.Magnitude > 0 then
                                 flatDirection = flatDirection.Unit
@@ -451,13 +449,13 @@ tab3:CreateToggle({
                                 flatDirection = Vector3.new(mr.CFrame.LookVector.X, 0, mr.CFrame.LookVector.Z).Unit
                             end
                             
-                            -- Kiểm tra nếu kim quay loạn (Đã đến bãi kho báu)
+                            -- Kiểm tra nếu la bàn xoay loạn góc (Đã đến bãi kho báu)
                             local aC = math.acos(math.clamp(lastD:Dot(flatDirection), -1, 1))
                             if aC > math.rad(90) and lastD.Magnitude > 0 then
                                 sTim = sTim + 1
                                 if sTim > 10 then
-                                    -- ĐÃ ĐẾN NƠI: Mở khóa để nhân vật rơi xuống đất đào báu bộp bộp
                                     mr.Anchored = false
+                                    -- Kích hoạt click chuột ảo liên hoàn đào rương báu
                                     for i = 1, 30 do
                                         task.wait(0.05)
                                         pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
@@ -466,40 +464,58 @@ tab3:CreateToggle({
                                 end
                             else
                                 sTim = 0
-                                -- 🌟 KHÓA TRỌNG LỰC BẰNG ANCHOR: Giúp lơ lửng trên trời
                                 mr.Anchored = true
                                 
-                                -- 🌟 CƠ CHẾ TWEEN PHẲNG ĐÁNH LỪA SERVER:
-                                -- Đặt độ cao an toàn là 50 studs trên không trung. 
-                                -- Nếu Server cố tình kéo bạn xuống, CFrame sẽ liên tục hồi lại vị trí phẳng mượt mà.
-                                local nextPos = mr.Position + (flatDirection * 4) -- Tốc độ tịnh tiến 4 studs mượt mà, né quét Anti-cheat
-                                mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 50, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, 50, nextPos.Z + flatDirection.Z))
+                                -- 🌟 THUẬT TOÁN ĐO ĐỘ CAO MẶT ĐẤT THỰC TẾ (RAYCASTING):
+                                -- Bắn một tia từ nhân vật thẳng xuống dưới 300 studs để tìm bề mặt gần nhất
+                                local raycastParams = RaycastParams.new()
+                                raycastParams.FilterFolder = {char, workspace.Camera}
+                                raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                                
+                                local raycastResult = workspace:Raycast(mr.Position, Vector3.new(0, -300, 0), raycastParams)
+                                
+                                -- Mặc định nếu không tìm thấy gì (đang ở biển sâu) thì coi như mặt biển ở mốc Y = 0
+                                local floorHeight = 0
+                                if raycastResult then
+                                    floorHeight = raycastResult.Position.Y
+                                end
+                                
+                                -- 🌟 TÍNH TOÁN ĐỘ CAO XE BAY: Luôn luôn bằng độ cao mặt đất hiện tại + thêm 45 studs an toàn
+                                local targetHeight = floorHeight + 45
+                                
+                                -- Tính tọa độ điểm tiếp theo với tốc độ tịnh tiến mượt mà x4 studs né Anti-cheat
+                                local nextPos = mr.Position + (flatDirection * 4)
+                                mr.CFrame = CFrame.new(Vector3.new(nextPos.X, targetHeight, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, targetHeight, nextPos.Z + flatDirection.Z))
                             end
                             lastD = flatDirection
                             
-                            -- 🌟 ANTI-WATER BẤT TỬ: Đổi trạng thái bơi thành chạy bộ để không bao giờ bị game trừ máu khi chạm nước biển
+                            -- Tự động bật chế độ bất tử, không bơi mất máu khi chạm nước
                             if hum:GetState() == Enum.HumanoidStateType.Swimming then
                                 hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
                                 hum:ChangeState(Enum.HumanoidStateType.Running)
                             end
                         else
                             mr.Anchored = true
-                            mr.CFrame = CFrame.new(mr.Position.X, 50, mr.Position.Z)
+                            mr.CFrame = CFrame.new(mr.Position.X, mr.Position.Y, mr.Position.Z)
                         end
                     end
                 end
-                
-                -- Trả nhân vật về trạng thái vật lý bình thường khi tắt hack
                 if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then
                     pObj.Character.HumanoidRootPart.Anchored = false
                     local hum = pObj.Character:FindFirstChildOfClass("Humanoid")
                     if hum then hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true) end
                 end
             end)
+        else
+            if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then
+                pObj.Character.HumanoidRootPart.Anchored = false
+                local hum = pObj.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true) end
+            end
         end
     end
 })
-)
+
 
 
 
