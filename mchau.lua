@@ -381,33 +381,28 @@ TeleportTab:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN MỚI: TÁCH RIÊNG 2 NÚT TELEPORT NHẶT VÀ BAY THEO HƯỚNG LA BÀN
+-- PHẦN MỚI: TỰ ĐỘNG BAY TRÊN CAO + TỰ ĐỘNG ĐÁP XUỐNG KHI TỚI KHO BÁU
 -- ====================================================================
--- Tạo thêm mục "Compass 🧭" ở thanh bên trái nằm dưới mục Teleport Đảo
 local CompassTab = MainMenu:CreateTab("Compass 🧭")
 
 local _G = _G or {}
 _G.AutoPickCompass = false
 _G.AutoFlyToCompassDirection = false
 
--- 🌟 NÚT 1: TELEPORT ĐI NHẶT LA BÀN RƠI TRÊN ĐẤT
+-- 🌟 NÚT 1: TELEPORT ĐI NHẶT LA BÀN RƠI TRÊN ĐẤT (Giữ nguyên)
 CompassTab:CreateToggle({
-    Name = "Auto Teleport Compass",
+    Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
     Callback = function(Value)
         _G.AutoPickCompass = Value
-        
         if _G.AutoPickCompass then
             task.spawn(function()
                 while _G.AutoPickCompass do
-                    task.wait(0.1) -- Tốc độ quét tối ưu chống lag game
-                    
+                    task.wait(0.1)
                     local character = localPlayer.Character
                     if character and character:FindFirstChild("HumanoidRootPart") then
                         local myRoot = character.HumanoidRootPart
                         local targetCompass = nil
-                        
-                        -- Quét tìm vật thể la bàn rơi rải rác trên bản đồ
                         for _, obj in pairs(workspace:GetDescendants()) do
                             if string.find(string.lower(obj.Name), "compass") then
                                 if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
@@ -417,8 +412,6 @@ CompassTab:CreateToggle({
                                 end
                             end
                         end
-                        
-                        -- Nếu phát hiện la bàn, bay vèo tới hút vào balo
                         if targetCompass then
                             myRoot.Anchored = true
                             myRoot.CFrame = targetCompass.CFrame * CFrame.new(0, 2, 0)
@@ -435,54 +428,82 @@ CompassTab:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: TỰ ĐỘNG BAY THEO HƯỚNG MŨI KIM LA BÀN CHỈ (TÌM ĐẢO ẨN/KHO BÁU)
+-- 🌟 NÚT 2: TỰ ĐỘNG BAY SIÊU TỐC + TỰ HẠ CÁNH ĐÀO KHO BÁU KHI ĐẾN NƠI
+local lastDirection = Vector3.new(0,0,0)
+local standTimer = 0
+
 CompassTab:CreateToggle({
-    Name = "Auto Find Compass",
+    Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
     Callback = function(Value)
         _G.AutoFlyToCompassDirection = Value
         
         if _G.AutoFlyToCompassDirection then
+            -- Reset bộ nhớ hướng
+            lastDirection = Vector3.new(0,0,0)
+            standTimer = 0
+            
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.02) -- Vòng lặp bay mượt mà, liên tục cập nhật hướng
+                    task.wait(0.01)
                     
                     local character = localPlayer.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChildOfClass("Humanoid") then
+                    if character and character:FindFirstChild("HumanoidRootPart") then
                         local myRoot = character.HumanoidRootPart
-                        local myHumanoid = character:FindFirstChildOfClass("Humanoid")
                         
-                        -- 1. Nếu la bàn đang ở trong Balo, tự động lôi ra cầm trên tay
+                        -- Tự động lấy la bàn ra cầm
                         local compassInBackpack = localPlayer.Backpack:FindFirstChild("Compass")
-                        if compassInBackpack then
-                            compassInBackpack.Parent = character
-                        end
+                        if compassInBackpack then compassInBackpack.Parent = character end
                         
                         local holdingCompass = character:FindFirstChild("Compass")
                         if holdingCompass then
-                            -- 2. Ép la bàn liên tục bấm kích hoạt để xoay mũi kim chỉ đường
                             pcall(function() holdingCompass:Activate() end)
                             
-                            -- 3. LOGIC TOÁN HỌC BAY THEO HƯỚNG LA BÀN:
-                            -- Khóa trọng lực để nhân vật bay lơ lửng, không bị rơi xuống biển
-                            myRoot.Anchored = true
-                            
-                            -- Lấy hướng mặt trước (LookVector) của chiếc la bàn hoặc tay nhân vật đang cầm
-                            -- Trong Roblox, la bàn hoạt động bằng cách hướng nhân vật hoặc kim quay về mục tiêu
-                            local flyDirection = myRoot.CFrame.LookVector
+                            -- Lấy hướng hiện tại của la bàn
+                            local rawDirection = myRoot.CFrame.LookVector
                             if holdingCompass:FindFirstChild("Handle") then
-                                flyDirection = holdingCompass.Handle.CFrame.LookVector
+                                rawDirection = holdingCompass.Handle.CFrame.LookVector
+                            end
+                            local flatDirection = Vector3.new(rawDirection.X, 0, rawDirection.Z).Unit
+                            
+                            -- 🌟 BỘ PHÁT HIỆN ĐẾN ĐÍCH (KHO BÁU):
+                            -- Tính góc lệch giữa hướng cũ và hướng mới. Nếu la bàn xoay hướng đột ngột (quay ngược lại hoặc quay tròn)
+                            local angleChange = math.acos(math.clamp(lastDirection:Dot(flatDirection), -1, 1))
+                            
+                            if angleChange > math.rad(90) and lastDirection.Magnitude > 0 then
+                                standTimer = standTimer + 1
+                                -- Nếu hướng la bàn bị loạn/quay ngược liên tục trong 10 vòng lặp -> Báo hiệu ĐÃ ĐẾN KHO BÁU
+                                if standTimer > 10 then
+                                    -- A. ĐÁP XUỐNG: Thả đóng băng, cho nhân vật rơi thẳng xuống đất nơi có cái cây/rương báu
+                                    myRoot.Anchored = false
+                                    
+                                    -- B. ĐÀO BÁU: Giả lập nhấp chuột liên tục để nhân vật tự động đào/nhặt kho báu
+                                    for i = 1, 30 do
+                                        task.wait(0.05)
+                                        pcall(function()
+                                            VirtualUser:CaptureController()
+                                            VirtualUser:ClickButton1(Vector2.new(9999, 9999))
+                                        end)
+                                    end
+                                    
+                                    -- C. TIẾP TỤC HÀNH TRÌNH: Sau khi đào xong, tự động bay lên trời đi tìm rương khác
+                                    standTimer = 0
+                                    myRoot.CFrame = myRoot.CFrame * CFrame.new(0, 70, 0)
+                                end
+                            else
+                                -- Nếu la bàn vẫn chỉ thẳng một hướng ổn định -> Tiếp tục bay siêu tốc x12 trên trời
+                                standTimer = 0
+                                myRoot.Anchored = true
+                                local nextPosition = myRoot.Position + (flatDirection * 12)
+                                myRoot.CFrame = CFrame.new(Vector3.new(nextPosition.X, 70, nextPosition.Z), nextPosition + flatDirection)
                             end
                             
-                            -- Ép nhân vật tịnh tiến bay thẳng về phía trước theo tốc độ ổn định (ví dụ tốc độ 3 stud/vòng lặp)
-                            myRoot.CFrame = myRoot.CFrame + (flyDirection * 3)
+                            lastDirection = flatDirection
                         else
-                            -- Nếu bật nút 2 mà trong người không có la bàn, tự động tắt đóng băng để tránh kẹt
                             myRoot.Anchored = false
                         end
                     end
                 end
-                -- Trả nhân vật về trạng thái bình thường khi tắt hack
                 if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     localPlayer.Character.HumanoidRootPart.Anchored = false
                 end
@@ -493,7 +514,7 @@ CompassTab:CreateToggle({
             end
         end
     end
-})
+end)
 
 
 
