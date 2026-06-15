@@ -365,10 +365,9 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS TỐI TÂN - DỊCH CHUYỂN TỨC THỜI ĐẾN THẲNG GỐC CÂY KHO BÁU
+-- PHẦN 3: LOGIC COMPASS - BỎ BAY TRÊN CAO, INSTANT TP THẲNG ĐẾN GỐC CÂY THEO KIM ĐỎ
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
-local sTim = 0
 
 -- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Giữ nguyên bản chuẩn gốc của bạn)
 tab3:CreateToggle({
@@ -407,7 +406,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: QUÉT MAP ĐOÁN HƯỚNG KIM ĐỎ - BIẾN HÌNH ĐẾN THẲNG GỐC CÂY KHO BÁU LẬP TỨC
+-- 🌟 NÚT 2: KHÔNG BAY CAO - CẦM LA BÀN LÊN LÀ TP THẲNG ĐẾN GỐC CÂY THEO KIM ĐỎ
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -418,18 +417,15 @@ tab3:CreateToggle({
         local vU = game:GetService("VirtualUser")
         
         if _G.AutoFlyToCompassDirection then
-            lastD = Vector3.new(0, 0, 0)
-            sTim = 0
-            
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.1) -- Tốc độ quét tìm đảo và cây kho báu ổn định
+                    task.wait(0.2) -- Quét vừa phải để game kịp load địa hình cây
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- Tự lấy la bàn ra cầm trên tay
+                        -- Tự lấy la bàn đeo lên tay từ balo
                         local bpc = pObj.Backpack:FindFirstChild("Compass")
                         if bpc then bpc.Parent = char end
                         
@@ -437,31 +433,30 @@ tab3:CreateToggle({
                         if hc then
                             pcall(function() hc:Activate() end)
                             
-                            -- Đọc hướng kim đỏ la bàn chuẩn xác
+                            -- Đọc hướng mũi kim la bàn game (Tuyệt đối không khóa Anchored bay lên trời nữa)
                             local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part")
                             local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
                             local flatDirection = Vector3.new(rd.X, 0, rd.Z).Unit
                             
-                            -- 🌟 RADA QUÉT GỐC CÂY KHO BÁU (TREASURE TREE):
+                            -- 🌟 RADA PHÓNG TIA TÌM GỐC CÂY DỌC THEO HƯỚNG KIM ĐỎ:
                             local targetTree = nil
                             local shortestDistance = math.huge
                             
-                            -- Tìm tất cả vật thể trong map chứa từ khóa: tree (cây), treasure (kho báu), chest (rương)
+                            -- Quét mọi vật thể có chứa chữ tree (cây), treasure (kho báu), chest (rương) trong map
                             for _, obj in pairs(workspace:GetDescendants()) do
                                 if obj:IsA("BasePart") or obj:IsA("Model") then
                                     local objName = string.lower(obj.Name)
                                     if string.find(objName, "tree") or string.find(objName, "treasure") or string.find(objName, "chest") then
-                                        -- Loại bỏ chướng ngại vật quá gần xuất phát hoặc thuộc về người chơi
                                         if not obj:IsAncestorOf(char) then
                                             local partPos = obj:IsA("Model") and (obj.PrimaryPart and obj.PrimaryPart.Position or obj:FindFirstChildOfClass("BasePart") and obj:FindFirstChildOfClass("BasePart").Position) or obj.Position
                                             
                                             if partPos then
-                                                -- Toán học Vector: Kiểm tra xem cái cây đó có nằm đúng hướng kim la bàn đang chỉ hay không
+                                                -- Kiểm tra xem vật phẩm có nằm khớp trên đường thẳng kim la bàn chỉ hay không
                                                 local vectorToObj = (partPos - mr.Position).Unit
                                                 local dotProduct = flatDirection:Dot(Vector3.new(vectorToObj.X, 0, vectorToObj.Z).Unit)
                                                 
-                                                -- Nếu góc lệch cực nhỏ (>0.95 nghĩa là cái cây nằm thẳng băng ngay trước mũi kim la bàn)
-                                                if dotProduct > 0.95 then
+                                                -- Độ chính xác góc quét > 0.93 (Thẳng hướng mũi tên)
+                                                if dotProduct > 0.93 then
                                                     local dist = (partPos - mr.Position).Magnitude
                                                     if dist < shortestDistance then
                                                         shortestDistance = dist
@@ -474,36 +469,25 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- 🌟 THỰC HIỆN DỊCH CHUYỂN TỨC THỜI (INSTANT TP TO TREE):
+                            -- 🌟 BIẾN HÌNH TỨC THỜI TRÊN MẶT ĐẤT (INSTANT TELEPORT):
                             if targetTree then
-                                mr.Anchored = true
-                                local treePos = targetTree:IsA("Model") and (targetTree.PrimaryPart and targetTree.PrimaryPart.CFrame or targetTree:FindFirstChildOfClass("BasePart").CFrame) or targetTree.CFrame
+                                local treeCFrame = targetTree:IsA("Model") and (targetTree.PrimaryPart and targetTree.PrimaryPart.CFrame or targetTree:FindFirstChildOfClass("BasePart").CFrame) or targetTree.CFrame
                                 
-                                -- Đáp thẳng xuống đất ngay cạnh gốc cây kho báu (Nâng lên 2 studs để tránh lọt đất)
-                                mr.CFrame = treePos * CFrame.new(0, 2, 4)
+                                -- ⚡ Dịch chuyển bộp một phát đáp thẳng xuống cạnh gốc cây (Cao hơn đất 2 studs để an toàn)
+                                mr.CFrame = treeCFrame * CFrame.new(0, 2, 4)
                                 task.wait(0.2)
-                                mr.Anchored = false
                                 
-                                -- Tự động xả chiêu đào báu liên tục x30 lần click chuột
+                                -- Kích hoạt đập chuột đào rương báu tự động x30 lần
                                 for i = 1, 30 do
                                     task.wait(0.04)
                                     pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                 end
-                                task.wait(1) -- Chờ nhận thưởng kho báu
-                            else
-                                -- Biện pháp dự phòng: Nếu chưa quét ra cây ở xa, nhấc người lên trời 100 studs và lướt nhanh theo kim đỏ để tìm
-                                mr.Anchored = true
-                                local nextPos = mr.Position + (flatDirection * 40) -- Bước nhảy lướt sóng 40 studs cực nhanh
-                                mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 100, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, 100, nextPos.Z + flatDirection.Z))
+                                task.wait(0.5)
                             end
-                            lastD = flatDirection
                         end
                     end
                 end
-                if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then pObj.Character.HumanoidRootPart.Anchored = false end
             end)
-        else
-            if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then pObj.Character.HumanoidRootPart.Anchored = false end
         end
     end
 })
