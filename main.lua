@@ -1,73 +1,89 @@
--- 1. Khởi chạy thư viện giao diện TỪ LINK CỦA BẠN
-local library = loadstring(game:HttpGet(("https://raw.githubusercontent.com/Volyminhchau/kyyuuunopro-script/refs/heads/main/main.lua")))()
--- 2. Khởi tạo Cửa sổ chính theo đúng cấu trúc hàm của thư viện bạn
-local Window = library:CreateWindow({
-    Name = "Kyyuuunopro Premium Hub 🚀",
-    LoadingTitle = "Đang tải hệ thống...",
-    LoadingUser = "Chào mừng người dùng"
-})
+local MyLibrary = {}
 
--- 3. Tạo Tab Chức Năng
-local FarmTab = Window:CreateTab("Auto Farm ⚔️") 
+function MyLibrary:CreateWindow(titleText)
+    -- 1. Tạo màn hình chứa giao diện (Gắn vào CoreGui để ẩn khỏi người chơi thường)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "KyyuuunoproPrivateUI"
+    pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
+    if not ScreenGui.Parent then ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") end
 
--- Cấu hình mặc định hệ thống
-local _G = _G or {}
-_G.AutoFarm = false
-local npcName = "Tên_NPC_Ở_Đây" -- ⚠️ Hãy ĐỔI chữ này thành tên chính xác của NPC trong game của bạn
+    -- 2. Tạo Khung Menu Chính (Main Frame)
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 350, 0, 220)
+    MainFrame.Position = UDim2.new(0.5, -175, 0.5, -110)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- Nền tối hiện đại
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true -- Có thể giữ chuột để kéo menu di chuyển khắp màn hình
+    MainFrame.Parent = ScreenGui
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.Parent = MainFrame
 
--- 4. Tạo Nút bật/tắt (Toggle) đồng bộ với thư viện của bạn
-FarmTab:CreateToggle({
-    Name = "Kích hoạt Auto Farm NPC",
-    CurrentValue = false,
-    Callback = function(Value)
-        _G.AutoFarm = Value
-        
-        if _G.AutoFarm then
-            task.spawn(function()
-                while _G.AutoFarm do
-                    task.wait(0.05) -- Tốc độ vòng lặp quét quái cực nhanh
-                    
-                    local player = game.Players.LocalPlayer
-                    local character = player.Character
-                    if character then
-                        local rootPart = character:FindFirstChild("HumanoidRootPart")
-                        local humanoid = character:FindFirstChildOfClass("Humanoid")
-                        
-                        if rootPart and humanoid and humanoid.Health > 0 then
-                            -- Quét tìm mục tiêu quái vật trong game
-                            local targetNPC = nil
-                            for _, obj in pairs(workspace:GetDescendants()) do
-                                if obj.Name == npcName and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
-                                    if obj:FindFirstChild("HumanoidRootPart") then
-                                        targetNPC = obj
-                                        break
-                                    end
-                                end
-                            end
-                            
-                            -- Hành động khi định vị được NPC mục tiêu
-                            if targetNPC then
-                                local npcRoot = targetNPC.HumanoidRootPart
-                                
-                                -- Dịch chuyển ra sau lưng cách quái 2.5 studs và quay mặt vào quái
-                                rootPart.CFrame = npcRoot.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
-                                
-                                -- Tự động kích hoạt vũ khí trên tay
-                                local tool = character:FindFirstChildOfClass("Tool")
-                                if tool then
-                                    tool:Activate()
-                                else
-                                    -- Tự động lấy vũ khí từ balo (Backpack) ra nếu chưa cầm sẵn
-                                    local backpackTool = player.Backpack:FindFirstChildOfClass("Tool")
-                                    if backpackTool then
-                                        backpackTool.Parent = character
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
+    -- 3. Tạo Tiêu đề Menu (Title Bar)
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 45)
+    Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Title.Text = titleText or "Menu Của Tôi"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 16
+    Title.Font = Enum.Font.SourceSansBold
+    Title.Parent = MainFrame
+    
+    local TitleCorner = Instance.new("UICorner")
+    TitleCorner.CornerRadius = UDim.new(0, 12)
+    TitleCorner.Parent = Title
+
+    -- Khung chứa danh sách các nút bấm
+    local Container = Instance.new("ScrollingFrame")
+    Container.Size = UDim2.new(1, -20, 1, -65)
+    Container.Position = UDim2.new(0, 10, 0, 55)
+    Container.BackgroundTransparency = 1
+    Container.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Container.ScrollBarThickness = 4
+    Container.Parent = MainFrame
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Padding = UDim.new(0, 8)
+    UIListLayout.Parent = Container
+
+    -- 4. Hàm xử lý tạo nút Bật/Tắt (Toggle)
+    local Elements = {}
+    
+    function Elements:CreateToggle(config)
+        local toggleName = config.Name or "Toggle"
+        local callback = config.Callback or function() end
+        local isToggled = config.CurrentValue or false
+
+        local ToggleButton = Instance.new("TextButton")
+        ToggleButton.Size = UDim2.new(1, 0, 0, 45)
+        ToggleButton.BackgroundColor3 = isToggled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(60, 60, 60)
+        ToggleButton.Text = toggleName .. " : " .. (isToggled and "BẬT" or "TẮT")
+        ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleButton.TextSize = 15
+        ToggleButton.Font = Enum.Font.SourceSansBold
+        ToggleButton.Parent = Container
+
+        local ButtonCorner = Instance.new("UICorner")
+        ButtonCorner.CornerRadius = UDim.new(0, 8)
+        ButtonCorner.Parent = ToggleButton
+
+        -- Kích hoạt hành động khi click chuột vào nút toggle
+        ToggleButton.MouseButton1Click:Connect(function()
+            isToggled = not isToggled
+            if isToggled then
+                ToggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Màu xanh lá khi bật
+                ToggleButton.Text = toggleName .. " : BẬT"
+            else
+                ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- Màu xám khi tắt
+                ToggleButton.Text = toggleName .. " : TẮT"
+            end
+            callback(isToggled)
+        end)
     end
-})
+
+    return Elements
+end
+
+return MyLibrary
