@@ -390,17 +390,24 @@ TeleportTab:CreateToggle({
     Name = "Dịch chuyển đến Flag location 1",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then teleportToIsland("Flag") end
+        if Value then teleportToIsland("Flag 1") end
+    end
+})
+})TeleportTab:CreateToggle({
+    Name = "Dịch chuyển đến Flag location 2",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then teleportToIsland("Flag 2") end
     end
 })
 -- ====================================================================
--- PHẦN 3: LOGIC MỤC COMPASS THÔNG MINH (ĐÃ ĐƯỢC TÁCH DÒNG RÕ RÀNG)
+-- PHẦN 3: LOGIC MỤC COMPASS THÔNG MINH (ĐÃ SỬA ĐỒNG BỘ BIẾN TAB3 CHUẨN 100%)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
 
--- 🌟 NÚT 1: TELEPORT NHẶT LA BÀN RƠI TRÊN ĐẤT
-CompassTab:CreateToggle({
+-- 🌟 NÚT 1: TELEPORT NHẶT LA BÀN RƠI TRÊN ĐẤT (Đã đổi sang tab3)
+tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
     Callback = function(v)
@@ -441,8 +448,8 @@ CompassTab:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: BAY TRÊN CAO THEO KIM ĐỎ VÀ TỰ ĐÁP XUỐNG ĐÀO KHO BÁU
-CompassTab:CreateToggle({
+-- 🌟 NÚT 2: BAY TRÊN CAO THEO KIM ĐỎ VÀ TỰ ĐÁP XUỐNG ĐÀO KHO BÁU (Đã đổi sang tab3)
+tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
     Callback = function(v)
@@ -518,8 +525,10 @@ CompassTab:CreateToggle({
             end)
         else
             if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-                lp.Character.HumanoidRootPart.Anchored = false
+                relativeRoot = lp.Character.HumanoidRootPart
+                relativeRoot.Anchored = false
             end
         end
     end
 })
+
