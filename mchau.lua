@@ -205,7 +205,7 @@ task.spawn(function()
     end
 end)
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU - CHỈ DỊCH CHUYỂN ĐÁNH QUÁI MÁU < 1000
+-- PHẦN 3: KHỞI CHẠY MENU - ÉP BUỘC PHẢI CÓ HUMANOID THẬT VÀ MÁU < 1000
 -- ====================================================================
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
@@ -215,13 +215,7 @@ local FarmTab = MainMenu:CreateTab("Farm ⚔️")
 local _G = _G or {}
 _G.AutoFarm = false
 
--- Hệ thống tự động ghi nhớ và cấm cửa quái giả / NPC bất tử bẫy hack
-local fakeMonsterBlacklist = {}
-local currentTarget = nil
-local previousHealth = 0
-local noDamageTimer = 0
-
--- Danh sách tên quái cũ để ưu tiên quét trước (nếu có)
+-- Danh sách tên quái cụ thể để ưu tiên (nếu có)
 local targetNPCs = {"Bandit", "Thug", "Angry bob", "Angry Freddy", "Thief", "Gunslinger"}
 
 local function isTargetNPC(name)
@@ -242,14 +236,9 @@ FarmTab:CreateToggle({
         _G.AutoFarm = Value
         
         if _G.AutoFarm then
-            -- Reset danh sách đen mỗi khi bật lại nút để làm mới cấu hình bãi farm
-            fakeMonsterBlacklist = {}
-            currentTarget = nil
-            noDamageTimer = 0
-            
             task.spawn(function()
                 while _G.AutoFarm do
-                    task.wait(0.02) -- Tốc độ vòng lặp tối ưu
+                    task.wait(0.02) -- Tốc độ vòng lặp tối ưu tránh lag máy
                     
                     local character = localPlayer.Character
                     if character then
@@ -260,74 +249,68 @@ FarmTab:CreateToggle({
                             local targetNPC = nil
                             local targetPart = nil
                             
-                            -- VÒNG QUÉT LỌC GIỚI HẠN LƯỢNG MÁU < 1000
+                            -- 🌟 BỘ LỌC ÉP BUỘC THÔNG SỐ HỆ THỐNG PHẢI CHUẨN 100%
                             for _, obj in pairs(workspace:GetDescendants()) do
+                                -- 1. Tìm thành phần quản lý máu (Humanoid) trực tiếp bên trong Model
                                 local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
                                 
-                                -- 🌟 ĐÃ CHỈNH: Quái phải còn sống, MaxHealth hệ thống PHẢI NHỎ HƠN 1000 VÀ không nằm trong danh sách đen
-                                if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 1000 and not fakeMonsterBlacklist[obj] then
+                                -- 🌟 ĐIỀU KIỆN TIÊN QUYẾT: Bắt buộc PHẢI CÓ Humanoid, máu phải còn sống (Health > 0) và máu tối đa PHẢI NHỎ HƠN 1000
+                                if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 1000 then
                                     
-                                    -- Loại trừ chính bạn và người chơi thật khác
+                                    -- 2. Loại trừ chính bạn và người chơi thật khác trong server
                                     local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
                                     if not isPlayer and obj.Name ~= localPlayer.Name then
                                         
-                                        if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
+                                        -- 3. Đảm bảo đối tượng này không chứa các chữ liên quan đến Quest ở tên Model cha
+                                        local isQuestParent = false
+                                        local currentParent = obj.Parent
+                                        while currentParent and currentParent ~= workspace do
+                                            local parentName = string.lower(currentParent.Name)
+                                            if string.find(parentName, "quest") or string.find(parentName, "giver") or string.find(parentName, "dialog") then
+                                                isQuestParent = true
+                                                break
+                                            end
+                                            currentParent = currentParent.Parent
+                                        end
+                                        
+                                        if not isQuestParent then
+                                            -- 4. Xác định bộ phận cơ thể để dịch chuyển tới (Ưu tiên các bộ phận di chuyển)
                                             local part = obj:FindFirstChild("HumanoidRootPart") 
                                                 or obj:FindFirstChild("Torso") 
                                                 or obj:FindFirstChild("Head") 
                                                 or obj:FindFirstChild("Base")
-                                                or obj:FindFirstChildOfClass("MeshPart")
                                                 or obj:FindFirstChildOfClass("Part")
                                             
                                             if part then
                                                 targetNPC = obj
                                                 targetPart = part
-                                                break
+                                                break -- Đã tìm thấy quái thật có máu yếu, khóa mục tiêu ngay!
                                             end
                                         end
                                     end
                                 end
                             end
                             
-                            -- TIẾN HÀNH DỊCH CHUYỂN VÀ THEO DÕI SÁT THƯƠNG THỰC TẾ
+                            -- TIẾN HÀNH DỊCH CHUYỂN ÁP SÁT VÀ GIẢ LẬP ĐÁNH CUA
                             if targetNPC and targetPart then
-                                local enemyHumanoid = targetNPC:FindFirstChildOfClass("Humanoid")
+                                -- Áp sát cực cận 1.2 studs sau lưng và xoay mặt khóa góc nhìn vào quái
+                                local targetPosition = targetPart.Position + (targetPart.CFrame.LookVector * -1.2)
+                                myRoot.CFrame = CFrame.new(targetPosition, targetPart.Position)
                                 
-                                -- BỘ KIỂM TRA SÁT THƯƠNG PHÒNG HỜ QUÁI BẤT TỬ MÁU THẤP
-                                if currentTarget == targetNPC then
-                                    if enemyHumanoid and enemyHumanoid.Health >= previousHealth then
-                                        noDamageTimer = noDamageTimer + 1
-                                        if noDamageTimer > 80 then
-                                            fakeMonsterBlacklist[targetNPC] = true
-                                            currentTarget = nil
-                                            noDamageTimer = 0
-                                        end
-                                    else
-                                        if enemyHumanoid then previousHealth = enemyHumanoid.Health end
-                                        noDamageTimer = 0
+                                -- Tự động trang bị vũ khí trên tay từ balo (Backpack)
+                                local tool = character:FindFirstChildOfClass("Tool")
+                                if not tool then
+                                    local backpackTool = localPlayer.Backpack:FindFirstChildOfClass("Tool")
+                                    if backpackTool then 
+                                        backpackTool.Parent = character 
                                     end
-                                else
-                                    currentTarget = targetNPC
-                                    if enemyHumanoid then previousHealth = enemyHumanoid.Health end
-                                    noDamageTimer = 0
                                 end
                                 
-                                -- Di chuyển áp sát cực cận 1.2 studs và vung đòn đánh
-                                if currentTarget == targetNPC then
-                                    local targetPosition = targetPart.Position + (targetPart.CFrame.LookVector * -1.2)
-                                    myRoot.CFrame = CFrame.new(targetPosition, targetPart.Position)
-                                    
-                                    local tool = character:FindFirstChildOfClass("Tool")
-                                    if not tool then
-                                        local backpackTool = localPlayer.Backpack:FindFirstChildOfClass("Tool")
-                                        if backpackTool then backpackTool.Parent = character end
-                                    end
-                                    
-                                    pcall(function()
-                                        VirtualUser:CaptureController()
-                                        VirtualUser:ClickButton1(Vector2.new(9999, 9999))
-                                    end)
-                                end
+                                -- Giả lập hệ thống click chuột liên hoàn để vung vũ khí chém quái
+                                pcall(function()
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:ClickButton1(Vector2.new(9999, 9999))
+                                end)
                             end
                         end
                     end
@@ -336,5 +319,6 @@ FarmTab:CreateToggle({
         end
     end
 })
+
 
 
