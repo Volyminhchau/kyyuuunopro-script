@@ -207,14 +207,26 @@ TeleportTab:CreateToggle({
         if Value then teleportToIsland("Jungle Island") end
     end
 })
-
 TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Big Snow Island",
+    Name = "Dịch chuyển đến Island",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then teleportToIsland("Big Snow Island") end
+        if Value then teleportToIsland("Island") end
     end
 })
-
+TeleportTab:CreateToggle({
+    Name = "Dịch chuyển đến Purple Island",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then teleportToIsland("Purple Island") end
+    end
+})
+TeleportTab:CreateToggle({
+    Name = "Dịch chuyển đến Purple",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then teleportToIsland("Purple") end
+    end
+})
 
 
