@@ -88,7 +88,7 @@ function MyLibrary:CreateWindow(titleText)
         -- Tạo Nút bấm chọn Tab ở thanh Sidebar bên trái
         local TabButton = Instance.new("TextButton")
         TabButton.Size = UDim2.new(0, 115, 0, 38)
-        TabButton.BackgroundColor3 = (TabCount == 1) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(35, 35, 45) -- Tab 1 có màu xanh làm điểm nhấn
+        TabButton.BackgroundColor3 = (TabCount == 1) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(35, 35, 45)
         TabButton.Text = tabName
         TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         TabButton.TextSize = 14
@@ -189,7 +189,10 @@ task.spawn(function()
                 for _, gui in pairs(playerGui:GetDescendants()) do
                     if gui:IsA("TextButton") or gui:IsA("ImageButton") then
                         local buttonText = string.lower(gui.Name)
-                        if gui:IsA("TextButton") then buttonText = buttonText .. string.lower(gui.Text) end
+                        if gui:IsA("TextButton") then 
+                            buttonText = buttonText .. string.lower(gui.Text) 
+                        end
+                        
                         if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then
                             if gui.Visible and gui.AbsoluteSize.X > 0 then
                                 pcall(function()
@@ -209,17 +212,15 @@ end)
 -- ====================================================================
 -- PHẦN 3: KHỞI CHẠY MENU VỚI THANH TAB & CONFIG AUTO FARM
 -- ====================================================================
--- Khởi tạo Menu chính xịn xò
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Premium Hub v2 🚀")
 
--- 🌟 TẠO MỤC "FARM" Ở THANH BÊN TRÁI
+-- Tạo mục Farm ở thanh danh mục bên trái
 local FarmTab = MainMenu:CreateTab("Farm ⚔️")
--- Bạn có thể dễ dàng thêm các Tab khác như thế này nếu thích:
--- local StatusTab = MainMenu:CreateTab("Thông tin 📊")
 
 local _G = _G or {}
 _G.AutoFarm = false
 
+-- Danh sách chính xác các NPC bạn muốn farm trên toàn map
 local targetNPCs = {
     "Thug",
     "Angry bob",
@@ -228,6 +229,7 @@ local targetNPCs = {
     "Gunslinger"
 }
 
+-- Hàm kiểm tra thông minh xem tên quái có nằm trong danh sách không
 local function isTargetNPC(name)
     local lowerName = string.lower(name)
     for _, target in pairs(targetNPCs) do
@@ -238,5 +240,62 @@ local function isTargetNPC(name)
     return false
 end
 
--- 🌟 NÚT BẬT/TẮT AUTO FARM BÂY GIỜ NẰM BÊN TRONG MỤC FARM
+-- Tạo nút gạt ON/OFF Auto Farm bên trong mục Farm
 FarmTab:CreateToggle({
+    Name = "Auto Farm Mobs (Toàn Map)",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.AutoFarm = Value
+        
+        if _G.AutoFarm then
+            task.spawn(function()
+                while _G.AutoFarm do
+                    task.wait(0.02) -- Tốc độ vòng lặp tối ưu
+                    
+                    local character = localPlayer.Character
+                    if character then
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        local humanoid = character:FindFirstChildOfClass("Humanoid")
+                        
+                        if rootPart and humanoid and humanoid.Health > 0 then
+                            local targetNPC = nil
+                            
+                            -- Quét toàn bộ map tìm quái vật còn sống
+                            for _, obj in pairs(workspace:GetDescendants()) do
+                                if isTargetNPC(obj.Name) and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
+                                    if obj:FindFirstChild("HumanoidRootPart") then
+                                        targetNPC = obj
+                                        break
+                                    end
+                                end
+                            end
+                            
+                            -- Thực hiện dịch chuyển và click tấn công
+                            if targetNPC then
+                                local npcRoot = targetNPC.HumanoidRootPart
+                                
+                                -- Dịch chuyển ra sau lưng quái
+                                rootPart.CFrame = npcRoot.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
+                                
+                                -- Tự động trang bị vũ khí trên tay
+                                local tool = character:FindFirstChildOfClass("Tool")
+                                if not tool then
+                                    local backpackTool = localPlayer.Backpack:FindFirstChildOfClass("Tool")
+                                    if backpackTool then 
+                                        backpackTool.Parent = character 
+                                    end
+                                end
+                                
+                                -- Giả lập click chuột ảo liên hoàn để chém quái
+                                pcall(function()
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:ClickButton1(Vector2.new(9999, 9999))
+                                end)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+})
