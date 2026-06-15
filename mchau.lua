@@ -316,7 +316,7 @@ end
 
 -- Tạo nút gạt ON/OFF Auto Farm bên trong mục Farm
 FarmTab:CreateToggle({
-    Name = "Auto Farm Mobs (Máu < 1000)",
+    Name = "Auto Farm Mobs (Máu < 2000)",
     CurrentValue = false,
     Callback = function(Value)
         _G.AutoFarm = Value
@@ -347,7 +347,7 @@ FarmTab:CreateToggle({
                                     local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
                                     
                                     -- Kiểm tra quái phải còn sống và MaxHealth hệ thống < 1000
-                                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 1000 then
+                                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 2000 then
                                         
                                         -- Loại trừ chính bạn và người chơi thật khác
                                         local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
