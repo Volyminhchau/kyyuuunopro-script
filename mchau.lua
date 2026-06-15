@@ -1,7 +1,7 @@
 -- ====================================================================
 -- 1. NẠP GIAO DIỆN TỪ LINK MAIN.LUA CHÍNH CHỦ CỦA BẠN
 -- ====================================================================
-local linkFile1 = "https://githubusercontent.com" 
+local linkFile1 = "https://raw.githubusercontent.com/Volyminhchau/kyyuuunopro-script/refs/heads/main/main.lua" 
 local myLibrary = loadstring(game:HttpGet(linkFile1))()
 
 -- ====================================================================
