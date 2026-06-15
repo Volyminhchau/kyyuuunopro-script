@@ -365,11 +365,11 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS VIP - VÒNG LẶP AUTO TÌM VÀ INSTANT TP LIÊN TỤC KHI BẬT
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - ĐÃ SỬA LỖI TREO BỘ NÃO (CHẠY 100%)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 
--- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Giữ nguyên bản chuẩn gốc của bạn)
+-- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -406,7 +406,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: VÒNG LẶP LIÊN TỤC - CỨ CÓ LA BÀN TRONG NGƯỜI LÀ TỰ ĐỘNG QUÉT VÀ INSTANT TP
+-- 🌟 NÚT 2: VÒNG LẶP AUTO QUÉT BALO + THOÁT BẪY ĐÓNG BĂNG + INSTANT TP LIÊN TỤC
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -418,38 +418,44 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Vòng lặp liên tục chạy ngầm khi nút gạt đang ở chế độ ON
+                -- Vòng lặp chạy ngầm liên tục khi nút gạt bật ON
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.5) -- Khoảng nghỉ ngắn giữa các lần quét để chống lag game
+                    task.wait(0.3) -- Kiểm tra balo liên tục tốc độ cao cực mượt
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- 🌟 BỘ TỰ ĐỘNG LỤC TÚI ĐEO LA BÀN: Tìm kiếm bất kể la bàn đang cất ở Backpack hay trên tay
+                        -- 🌟 BỘ TỰ ĐỘNG CẦM LA BÀN: Lùng sục trong người xem có món đồ la bàn nào không
                         local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass") or char:FindFirstChildOfClass("Tool")
                         
                         if not hc then
                             for _, item in pairs(pObj.Backpack:GetChildren()) do
-                                if string.find(string.lower(item.Name), "com") or string.find(string.lower(item.Name), "la") then
-                                    item.Parent = char -- Lôi từ balo ra tay cầm liền
+                                local itemName = string.lower(item.Name)
+                                if string.find(itemName, "com") or string.find(itemName, "la") then
+                                    item.Parent = char -- Tự động lôi từ balo ép cầm lên tay
                                     hc = item
                                     break
                                 end
                             end
                         end
                         
-                        -- Nếu trong người có la bàn (đang cầm trên tay) thì tiến hành bẻ khóa toạ độ bay luôn
+                        -- Nếu tìm thấy và đã cầm trên tay thành công, tiến hành phá bẫy dịch chuyển luôn
                         if hc and (string.find(string.lower(hc.Name), "com") or string.find(string.lower(hc.Name), "la")) then
-                            -- Bấm kích hoạt la bàn của game
-                            pcall(function() hc:Activate() end)
-                            task.wait(0.15) -- Chờ game nạp dữ liệu rương báu ẩn lên máy
+                            pcall(function() hc:Activate() end) -- Kích hoạt la bàn dò hướng
+                            task.wait(0.15) -- Chờ game nạp vị trí rương ẩn
                             
-                            -- 🌟 MẮT THẦN QUÉT TOÀN BỘ GAME ĐỂ LẤY TOẠ ĐỘ THỰC TẾ CỦA KHO BÁU:
+                            -- Khử hoàn toàn lỗi đóng băng chân của cây la bàn game
+                            mr.Anchored = false
+                            for _, p in pairs(char:GetChildren()) do
+                                if p:IsA("BasePart") then p.Anchored = false end
+                            end
+                            
+                            -- 🌟 MẮT THẦN DÒ TÌM TOẠ ĐỘ THỰC TẾ TRONG LÕI GAME:
                             local treasurePosition = nil
                             
-                            -- Hướng A: Dò tìm tia định vị ngầm (Beam) nối từ la bàn ra vị trí đảo ẩn
+                            -- Hướng A: Dò tìm tia định vị ngầm (Beam)
                             for _, child in pairs(workspace:GetDescendants()) do
                                 if child:IsA("Beam") and (child.Attachment0 and child.Attachment0:IsAncestorOf(char) or child.Attachment1 and child.Attachment1:IsAncestorOf(char)) then
                                     local targetAttachment = child.Attachment1 or child.Attachment0
@@ -459,7 +465,7 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Hướng B: Dò tìm điểm Waypoint hoặc Vector3Value ẩn do game sinh ra
+                            -- Hướng B: Dò tìm điểm đánh dấu Waypoint hoặc dữ liệu vị trí ẩn
                             if not treasurePosition then
                                 for _, obj in pairs(workspace:GetChildren()) do
                                     local lowerObj = string.lower(obj.Name)
@@ -470,11 +476,11 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Hướng C: Đọc hướng kim đỏ rồi phóng tia toán học quét vật thể cách xa 30.000 studs trên mặt đất
+                            -- Hướng C: Đọc hướng kim đỏ la bàn phẳng (ĐÃ SỬA VÁ LỖI GÂY TREO CODE)
                             if not treasurePosition then
                                 local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle")
                                 local flyDir = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
-                                local flatDirection = Vector3.new(flyDir.X, 0, flatDirection and flatDirection.Z or flyDir.Z).Unit
+                                local flatDirection = Vector3.new(flyDir.X, 0, flyDir.Z).Unit
                                 
                                 local raycastParams = RaycastParams.new()
                                 raycastParams.FilterFolder = {char, workspace.Camera}
@@ -484,26 +490,27 @@ tab3:CreateToggle({
                                 if raycastResult and raycastResult.Position then
                                     treasurePosition = raycastResult.Position
                                 else
-                                    -- Dự phòng nếu map chưa nạp địa hình xa: Nhảy chặng 3.500 studs phẳng theo hướng kim la bàn chỉ
+                                    -- Dự phòng nhảy chặng 3500 studs phẳng theo hướng kim la bàn chỉ mặt đất
                                     treasurePosition = mr.Position + (flatDirection * 3500)
                                 end
                             end
                             
-                            -- 🌟 THỰC HIỆN INSTANT TELEPORT BIẾN HÌNH ĐẾN ĐÍCH:
+                            -- 🌟 THỰC HIỆN DỊCH CHUYỂN TỨC THỜI CHỚP MẮT (INSTANT TP):
                             if treasurePosition then
-                                mr.Anchored = true -- Đóng băng trọng lực tạm thời chống rơi tự do xuống biển
+                                mr.Anchored = true -- Khóa trọng lực tạm thời tránh lọt map
                                 
+                                -- Đồng bộ góc quay mặt nhân vật thẳng hướng đích
                                 local targetCFrame = CFrame.new(Vector3.new(treasurePosition.X, treasurePosition.Y + 2.5, treasurePosition.Z), Vector3.new(treasurePosition.X, treasurePosition.Y + 2.5, treasurePosition.Z) + mr.CFrame.LookVector)
                                 mr.CFrame = targetCFrame
-                                task.wait(0.3) -- Chờ địa hình nạp xong mượt mà
+                                task.wait(0.3) -- Chờ nạp xong địa hình đảo mượt mà
                                 mr.Anchored = false
                                 
-                                -- Tự động nhấp đào rương liên tục x30 lần
+                                -- Đập chuột ảo liên hoàn đào rương báu x30 lần
                                 for i = 1, 30 do
                                     task.wait(0.04)
                                     pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                 end
-                                task.wait(0.5) -- Chờ hốt quà xong xuôi
+                                task.wait(0.5) -- Chờ hốt quà xong xuôi để vòng lặp quét tiếp la bàn mới
                             end
                         end
                     end
