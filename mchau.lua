@@ -365,11 +365,11 @@ TeleportTab:CreateToggle({
 
 
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS TỐI TÂN - ĐI BỘ TRÊN BIỂN (ĐÁNH LỪA ANTI-CHEAT SERVER)
+-- PHẦN 3: LOGIC COMPASS - TỰ ĐỘNG BỂ KHÓA ĐÓNG BĂNG CHÂN & ÉP BƯỚC ĐI
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
-local Platform = nil -- Tấm nền tảng tàng hình đi bộ trên biển
+local Platform = nil
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (Giữ nguyên bản chuẩn)
 tab3:CreateToggle({
@@ -407,26 +407,25 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: CƠ CHẾ ĐI BỘ TRÊN BIỂN - KHÔNG BỊ GIẬT LẠI, KHÔNG DÍNH NƯỚC BIỂN
+-- 🌟 NÚT 2: BẺ KHÓA ĐÓNG BĂNG VÀ CƯỠNG ÉP ĐI BỘ THEO KIM LA BÀN
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
         
-        -- Dọn dẹp tấm nền cũ nếu có khi tắt/bật lại nút
         if Platform then pcall(function() Platform:Destroy() end) Platform = nil end
         
         if _G.AutoFlyToCompassDirection then
             lastD = Vector3.new(0, 0, 0)
             sTim = 0
             
-            -- 🌟 TẠO TẤM NỀN TÀNG HÌNH DƯỚI CHÂN: Giúp đứng trên nước biển mà không bị chìm
+            -- Tạo tấm nền tàng hình giữ độ cao cách mặt nước 5 studs
             pcall(function()
                 Platform = Instance.new("Part")
                 Platform.Name = "KyyGlowPlatform"
-                Platform.Size = Vector3.new(15, 1, 15)
-                Platform.Transparency = 1 -- Đặt bằng 1 để tàng hình, không che mắt bạn
+                Platform.Size = Vector3.new(20, 1, 20)
+                Platform.Transparency = 1
                 Platform.Anchored = true
                 Platform.CanCollide = true
                 Platform.Parent = workspace
@@ -440,6 +439,12 @@ tab3:CreateToggle({
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     
                     if mr and hum and hum.Health > 0 then
+                        -- 🌟 BỘ KHỬ ANCHOR: Quét và ép mở khóa chân liên tục chống game đóng băng
+                        mr.Anchored = false
+                        for _, part in pairs(char:GetChildren()) do
+                            if part:IsA("BasePart") then part.Anchored = false end
+                        end
+                        
                         -- Tự lấy la bàn ra cầm trên tay
                         local bpc = lp.Backpack:FindFirstChild("Compass")
                         if bpc then bpc.Parent = char end
@@ -448,7 +453,7 @@ tab3:CreateToggle({
                         if hc then
                             pcall(function() hc:Activate() end)
                             
-                            -- Quét tìm mũi kim đỏ của la bàn game
+                            -- Quét tìm hướng la bàn
                             local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part")
                             local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
                             local fd = Vector3.new(rd.X, 0, rd.Z).Unit
@@ -458,38 +463,34 @@ tab3:CreateToggle({
                             if aC > math.rad(90) and lastD.Magnitude > 0 then
                                 sTim = sTim + 1
                                 if sTim > 10 then
-                                    -- Đã đến bãi báu vật: Tạm thời tắt tấm nền dưới chân để nhân vật rơi xuống bãi cỏ đào báu
                                     if Platform then Platform.CanCollide = false end
-                                    
-                                    -- Giả lập tự động đào báu x30 lần nhấp chuột
+                                    -- Đào báu liên hoàn
                                     for i = 1, 30 do
                                         task.wait(0.05)
                                         pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                     end
                                     sTim = 0
-                                    -- Đào xong bật lại nền để tiếp tục đi trên biển
                                     if Platform then Platform.CanCollide = true end
                                 end
                             else
                                 sTim = 0
-                                -- 🌟 CẬP NHẬT TỌA ĐỘ TẤM NỀN TÀNG HÌNH: Khóa chặt cao độ cách mực nước biển 5 studs để đi bộ trên nước
+                                -- Cập nhật vị trí sàn tàng hình dưới chân
                                 if Platform then
                                     Platform.CFrame = CFrame.new(mr.Position.X, 5, mr.Position.Z)
                                 end
                                 
-                                -- 🌟 ÉP NHÂN VẬT QUAY MẶT: Luôn luôn nhìn thẳng chuẩn xác theo hướng kim la bàn chỉ
+                                -- Ép hướng nhìn nhân vật quay theo kim la bàn
                                 mr.CFrame = CFrame.new(mr.Position, mr.Position + fd)
                                 
-                                -- 🌟 LỆNH DI CHUYỂN HỢP LỆ (MoveTo): Ép nhân vật tự chạy bộ thẳng tiến về phía trước
-                                -- Tốc độ chạy an toàn không bị giật lại là cộng thêm 1.5 studs mỗi vòng lặp
-                                mr.CFrame = mr.CFrame + (fd * 1.5)
+                                -- 🌟 LỆNH CƯỠNG ÉP ĐI BỘ VẬT LÝ: Buộc hệ thống điều khiển chân bước đi xé gió
+                                hum:Move(fd, true)
+                                -- Bổ sung thêm lực đẩy phụ 1.8 studs để di chuyển nhanh hơn, mượt hơn trên biển
+                                mr.CFrame = mr.CFrame + (fd * 1.8)
                             end
                             lastD = fd
                         end
                     end
                 end
-                
-                -- Tự động xóa tấm nền tàng hình trả nhân vật về bình thường khi TẮT hack
                 if Platform then pcall(function() Platform:Destroy() end) Platform = nil end
             end)
         else
