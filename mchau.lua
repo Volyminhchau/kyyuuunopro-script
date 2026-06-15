@@ -365,12 +365,12 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS TỐI TÂN - TỰ ĐỘNG BAY CAO CÁCH MẶT ĐẤT/MẶT NƯỚC 45 STUDS
+-- PHẦN 3: LOGIC COMPASS TỐI TÂN - TỰ ĐỘNG BAY THEO ĐỊA HÌNH (VÁ LỖI ĐỨNG IM)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
 
--- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (Giữ nguyên bản chuẩn của bạn)
+-- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (Bản chuẩn của bạn)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -407,7 +407,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: CƠ CHẾ XE BAY PREMIUM - LUÔN GIỮ ĐỘ CAO 45 STUDS SO VỚI MẶT ĐẤT/MẶT BIỂN BÊN DƯỚI
+-- 🌟 NÚT 2: CƠ CHẾ XE BAY PREMIUM - TỰ ĐỘNG NÂNG ĐỘ CAO THEO SƯỜN NÚI (FIX ĐỨNG IM)
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -441,7 +441,7 @@ tab3:CreateToggle({
                             local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part")
                             local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
                             
-                            -- Khử lỗi chia cho 0 gây crash nhân vật
+                            -- Khử lỗi chia cho 0 gây kẹt nhân vật
                             local flatDirection = Vector3.new(rd.X, 0, rd.Z)
                             if flatDirection.Magnitude > 0 then
                                 flatDirection = flatDirection.Unit
@@ -466,30 +466,32 @@ tab3:CreateToggle({
                                 sTim = 0
                                 mr.Anchored = true
                                 
-                                -- 🌟 THUẬT TOÁN ĐO ĐỘ CAO MẶT ĐẤT THỰC TẾ (RAYCASTING):
-                                -- Bắn một tia từ nhân vật thẳng xuống dưới 300 studs để tìm bề mặt gần nhất
+                                -- 🌟 THUẬT TOÁN BẮN TIA TỰ ĐỘNG THÔNG MINH CAO CẤP:
                                 local raycastParams = RaycastParams.new()
                                 raycastParams.FilterFolder = {char, workspace.Camera}
                                 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
                                 
+                                -- Bắn tia thẳng xuống dưới từ người bạn
                                 local raycastResult = workspace:Raycast(mr.Position, Vector3.new(0, -300, 0), raycastParams)
                                 
-                                -- Mặc định nếu không tìm thấy gì (đang ở biển sâu) thì coi như mặt biển ở mốc Y = 0
-                                local floorHeight = 0
-                                if raycastResult then
-                                    floorHeight = raycastResult.Position.Y
+                                local targetHeight = 60 -- Mặc định nếu bay ngoài biển sâu, giữ độ cao an toàn 60 studs chống tụt xuống nước
+                                
+                                if raycastResult and raycastResult.Position then
+                                    -- 🌟 ĐÃ SỬA: Nếu bắn trúng địa hình/sườn núi, tự nâng người lên cao hơn bề mặt đất đó 45 studs
+                                    targetHeight = raycastResult.Position.Y + 45
+                                else
+                                    -- 🌟 ĐÃ SỬA: Nếu ở ngoài biển sâu (Raycast rỗng), tự động đồng bộ theo độ cao mốc Y an toàn để không bị đứng im
+                                    targetHeight = 60
                                 end
                                 
-                                -- 🌟 TÍNH TOÁN ĐỘ CAO XE BAY: Luôn luôn bằng độ cao mặt đất hiện tại + thêm 45 studs an toàn
-                                local targetHeight = floorHeight + 45
-                                
-                                -- Tính tọa độ điểm tiếp theo với tốc độ tịnh tiến mượt mà x4 studs né Anti-cheat
-                                local nextPos = mr.Position + (flatDirection * 4)
+                                -- 🌟 TỐC ĐỘ DI CHUYỂN SIÊU TỐC AN TOÀN TRÊN KHÔNG TRUNG: 
+                                -- Tịnh tiến 6 studs mỗi vòng lặp giúp vượt đại dương cực nhanh, mượt mà bẻ gãy Anti-cheat
+                                local nextPos = mr.Position + (flatDirection * 6)
                                 mr.CFrame = CFrame.new(Vector3.new(nextPos.X, targetHeight, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, targetHeight, nextPos.Z + flatDirection.Z))
                             end
                             lastD = flatDirection
                             
-                            -- Tự động bật chế độ bất tử, không bơi mất máu khi chạm nước
+                            -- Tự động bật chế độ bất tử nước biển, không bơi mất máu khi chạm nước
                             if hum:GetState() == Enum.HumanoidStateType.Swimming then
                                 hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
                                 hum:ChangeState(Enum.HumanoidStateType.Running)
