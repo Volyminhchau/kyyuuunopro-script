@@ -3,9 +3,8 @@
 -- ====================================================================
 local linkFile1 = "https://raw.githubusercontent.com/Volyminhchau/kyyuuunopro-script/refs/heads/main/main.lua" 
 local myLibrary = loadstring(game:HttpGet(linkFile1))()
-
 -- ====================================================================
--- 2. KHỞI TẠO CỬA SỔ MENU (Sửa đúng theo hàm CreateWindow trong ảnh của bạn)
+-- 2. KHỞI TẠO CỬA SỔ MENU (Khớp cấu pháp MyLibrary:CreateWindow)
 -- ====================================================================
 local MainMenu = myLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
