@@ -205,7 +205,7 @@ task.spawn(function()
     end
 end)
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU - BỘ LỌC MÁU THÔNG MINH (CHỐNG BÁM NPC QUEST)
+-- PHẦN 3: KHỞI CHẠY MENU - CHỈ DỊCH CHUYỂN ĐÁNH QUÁI MÁU < 5000
 -- ====================================================================
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
@@ -215,15 +215,8 @@ local FarmTab = MainMenu:CreateTab("Farm ⚔️")
 local _G = _G or {}
 _G.AutoFarm = false
 
--- Danh sách tên quái cũ để ưu tiên quét trước
-local targetNPCs = {
-    "Bandit",
-    "Thug",
-    "Angry bob",
-    "Angry Freddy",
-    "Thief",
-    "Gunslinger"
-}
+-- Danh sách tên quái cũ để ưu tiên quét trước (nếu có)
+local targetNPCs = {"Bandit", "Thug", "Angry bob", "Angry Freddy", "Thief", "Gunslinger"}
 
 local function isTargetNPC(name)
     local lowerName = string.lower(name)
@@ -237,7 +230,7 @@ end
 
 -- Tạo nút gạt ON/OFF Auto Farm bên trong mục Farm
 FarmTab:CreateToggle({
-    Name = "Auto Farm Mobs (Toàn Map)",
+    Name = "Auto Farm Mobs (Máu < 5000)",
     CurrentValue = false,
     Callback = function(Value)
         _G.AutoFarm = Value
@@ -256,21 +249,19 @@ FarmTab:CreateToggle({
                             local targetNPC = nil
                             local targetPart = nil
                             
-                            -- VÒNG QUÉT BỘ LỌC MÁU QUÁI VẬT TỐI TÂN
+                            -- VÒNG QUÉT THÔNG MINH LỌC LƯỢNG MÁU < 5000
                             for _, obj in pairs(workspace:GetDescendants()) do
                                 local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
                                 
-                                -- 🌟 ĐIỀU KIỆN 1: Phải có Humanoid, đang còn sống, và máu tối đa phải LỚN HƠN 5 (Loại bỏ các NPC Quest máu = 0 hoặc 1)
-                                if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth > 5 then
+                                -- 🌟 CHỈNH TẠI ĐÂY: Quái phải còn sống VÀ có Máu tối đa (MaxHealth) nhỏ hơn 5000
+                                if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 5000 then
                                     
-                                    -- Loại trừ người chơi thật
+                                    -- Loại trừ chính bạn và người chơi thật khác
                                     local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
                                     if not isPlayer and obj.Name ~= localPlayer.Name then
                                         
-                                        -- 🌟 ĐIỀU KIỆN 2: Kiểm tra cấu trúc đặt tên từ nhà làm game
+                                        -- Bộ lọc kiểm tra cấu trúc quái hoặc không tên (cua đỏ)
                                         if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
-                                            
-                                            -- Tìm bộ phận gốc để dịch chuyển đến
                                             local part = obj:FindFirstChild("HumanoidRootPart") 
                                                 or obj:FindFirstChild("Torso") 
                                                 or obj:FindFirstChild("Head") 
@@ -278,31 +269,19 @@ FarmTab:CreateToggle({
                                                 or obj:FindFirstChildOfClass("MeshPart")
                                                 or obj:FindFirstChildOfClass("Part")
                                             
-                                            -- 🌟 ĐIỀU KIỆN 3: Đảm bảo bộ phận này KHÔNG thuộc một Model có tên chứa chữ "Quest" hay "Giver"
-                                            local isQuestParent = false
-                                            local currentParent = obj.Parent
-                                            while currentParent and currentParent ~= workspace do
-                                                local parentName = string.lower(currentParent.Name)
-                                                if string.find(parentName, "quest") or string.find(parentName, "giver") or string.find(parentName, "dialog") then
-                                                    isQuestParent = true
-                                                    break
-                                                end
-                                                currentParent = currentParent.Parent
-                                            end
-                                            
-                                            if part and not isQuestParent then
+                                            if part then
                                                 targetNPC = obj
                                                 targetPart = part
-                                                break -- Đã tìm thấy quái thực sự, dừng quét ngay
+                                                break -- Khóa mục tiêu ngay khi tìm thấy quái hợp lệ
                                             end
                                         end
-                                        
                                     end
                                 end
                             end
                             
                             -- TIẾN HÀNH DỊCH CHUYỂN ÁP SÁT VÀ GIẢ LẬP ĐÁNH CUA
                             if targetNPC and targetPart then
+                                -- Áp sát cực cận 1.2 studs và xoay mặt khóa mục tiêu thẳng vào quái
                                 local targetPosition = targetPart.Position + (targetPart.CFrame.LookVector * -1.2)
                                 myRoot.CFrame = CFrame.new(targetPosition, targetPart.Position)
                                 
