@@ -129,7 +129,7 @@ function MyLibrary:CreateWindow(titleText)
                 if isToggled then 
                     SliderBg.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
                     Circle:TweenPosition(UDim2.new(1, -23, 0.5, -10), "Out", "Quad", 0.15, true)
-                              else 
+                else 
                     SliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 60) 
                     Circle:TweenPosition(UDim2.new(0, 3, 0.5, -10), "Out", "Quad", 0.15, true)
                 end
@@ -142,65 +142,40 @@ function MyLibrary:CreateWindow(titleText)
 end
 
 -- ====================================================================
--- PHẦN 1.2: HỆ THỐNG GIẢ LẬP CLICK TOÀN NĂNG - ÉP BẤM NÚT SPAWN MÀU XANH
+-- PHẦN 1.2: LOGIC HỆ THỐNG TỰ ĐỘNG BẤM NÚT HỒI SINH (AUTO SPAWN)
 -- ====================================================================
 local PlayersService = game:GetService("Players") 
 local localPlayer = PlayersService.LocalPlayer 
-local VirtualInputManager = game:GetService("VirtualInputManager") -- Dịch vụ click chuột/chạm tay cấp cao
-local GuiService = game:GetService("GuiService")
+local VirtualUser = game:GetService("VirtualUser")
 
 task.spawn(function() 
     while true do 
-        task.wait(0.5) -- Kiểm tra liên tục mỗi 0.5 giây để hồi sinh ngay lập tức
-        
-        -- Chỉ tự động bấm nút Spawn khi bạn đang BẬT nút Auto Farm (_G.AutoFarm == true)
-        if _G.AutoFarm then
-            local character = localPlayer.Character 
-            
-            -- Nếu nhân vật chết hoặc đang kẹt ở màn hình chọn Spawn hiển thị trong ảnh
-            if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then 
-                local playerGui = localPlayer:FindFirstChild("PlayerGui") 
-                if playerGui then 
-                    -- Quét mọi vật thể UI để tìm cái nút ghi chữ "Spawn" viết hoa
-                    for _, gui in pairs(playerGui:GetDescendants()) do 
-                        if gui:IsA("TextButton") then
-                            -- Ép kiểu chữ hoa/thường để tránh lỗi viết sai chính tả tên nút
-                            local buttonText = string.gsub(gui.Text, "%s+", "") -- Xóa khoảng trắng thừa
-                            
-                            -- Khóa mục tiêu nếu thấy nút ghi chữ "Spawn" y hệt trong ảnh của bạn
-                            if string.lower(buttonText) == "spawn" then
-                                -- Kiểm tra nếu nút đang xuất hiện và có kích thước thật trên màn hình
-                                if gui.AbsoluteSize.X > 0 and gui.AbsoluteSize.Y > 0 then
-                                    pcall(function()
-                                        -- Lớp 1: Gửi lệnh kích hoạt gốc
-                                        gui:Activate()
-                                        
-                                        -- Lớp 2: Mô phỏng hành động CLICK CHẠM TAY VÀO MÀN HÌNH ĐIỆN THOẠI (Lookat đúng tâm nút xanh)
-                                        local posX = gui.AbsolutePosition.X + (gui.AbsoluteSize.X / 2)
-                                        local posY = gui.AbsolutePosition.Y + (gui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
-                                        
-                                        -- Nhấp chuột xuống và nhấc chuột lên tại tâm nút Spawn
-                                        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
-                                        task.wait(0.05)
-                                        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
-                                        
-                                        -- Lớp 3: Kích hoạt tất cả các hàm sự kiện OnClick ẩn của nút
-                                        if getconnections then
-                                            for _, con in pairs(getconnections(gui.MouseButton1Click)) do con:Fire() end
-                                            for _, con in pairs(getconnections(gui.MouseButton1Down)) do con:Fire() end
-                                            for _, con in pairs(getconnections(gui.Activated)) do con:Fire() end
-                                        end
-                                    end)
-                                end
-                            end
+        task.wait(1) 
+        local character = localPlayer.Character 
+        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then 
+            local playerGui = localPlayer:FindFirstChild("PlayerGui") 
+            if playerGui then 
+                for _, gui in pairs(playerGui:GetDescendants()) do 
+                    if gui:IsA("TextButton") or gui:IsA("ImageButton") then 
+                        local buttonText = string.lower(gui.Name) 
+                        if gui:IsA("TextButton") then 
+                            buttonText = buttonText .. string.lower(gui.Text) 
+                        end 
+                        if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then 
+                            if gui.Visible and gui.AbsoluteSize.X > 0 then 
+                                pcall(function() 
+                                    gui:Activate() 
+                                    for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end 
+                                    for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end 
+                                end) 
+                            end 
                         end 
                     end 
-                end
+                end 
             end 
-        end
+        end 
     end 
 end)
-
 -- ====================================================================
 -- PHẦN 2: KHỞI CHẠY MENU, ĐÈN LED RGB VÀ LOGIC TÍNH NĂNG FARM QUÁI
 -- ====================================================================
