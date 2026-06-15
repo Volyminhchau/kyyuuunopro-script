@@ -360,4 +360,5 @@ TeleportTab:CreateToggle({
     CurrentValue = false,
     Callback = function(Value)
         if Value then teleportToIsland("Sam's Island") end
-    end
+        end
+})
