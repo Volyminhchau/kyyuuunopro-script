@@ -190,7 +190,7 @@ FarmTab:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN - GIỮA ĐẢO TRÊN CAO (80 STUDS)
+-- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN - KHÓA ĐỘ CAO CHỐNG RƠI LỌT ĐẤT
 -- ====================================================================
 -- Khởi tạo nút "Teleport 🌀" ở thanh bên trái nằm ngay dưới nút Farm
 local TeleportTab = MainMenu:CreateTab("Teleport 🌀")
@@ -219,12 +219,19 @@ local function teleportToIsland(islandName)
                 islandCFrame = foundIsland.CFrame
             end
             
-            -- 🌟 PHÉP TOÁN GIỮA ĐẢO TRÊN CAO:
-            -- Lấy tâm đảo và cộng thêm 80 studs theo trục Y (độ cao thẳng đứng)
-            local safeCFrame = islandCFrame * CFrame.new(0, 250, 0)
+            -- 🌟 TĂNG ĐỘ CAO LÊN 120 STUDS ĐỂ SIÊU AN TOÀN
+            local safeCFrame = islandCFrame * CFrame.new(0, 140, 0)
             
-            -- Thực hiện dịch chuyển an toàn
+            -- 🌟 BỘ KHÓA VỊ TRÍ CHỐNG RƠI (ANCHOR):
+            -- Đóng băng nhân vật đứng im trên không trung để tránh bị trọng lực kéo tụt xuống đất
+            myRoot.Anchored = true
             myRoot.CFrame = safeCFrame
+            
+            -- Chờ 1.5 giây cho game tải (load) xong bản đồ và địa hình của đảo mới
+            task.wait(1.5)
+            
+            -- Mở khóa đóng băng để nhân vật rơi nhẹ từ trên trời xuống bãi cỏ giữa đảo
+            myRoot.Anchored = false
         end
     end
 end
