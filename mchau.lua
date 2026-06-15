@@ -142,41 +142,65 @@ function MyLibrary:CreateWindow(titleText)
 end
 
 -- ====================================================================
--- PHẦN 1.2: LOGIC HỆ THỐNG TỰ ĐỘNG BẤM NÚT HỒI SINH (AUTO SPAWN)
+-- PHẦN 1.2: HỆ THỐNG AUTO SPAWN ĐỒNG BỘ - CHỈ TỰ BẤM NÚT KHI BẬT AUTO FARM
 -- ====================================================================
 local PlayersService = game:GetService("Players") 
 local localPlayer = PlayersService.LocalPlayer 
 local VirtualUser = game:GetService("VirtualUser")
+local GuiService = game:GetService("GuiService")
 
 task.spawn(function() 
     while true do 
-        task.wait(1) 
-        local character = localPlayer.Character 
-        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then 
-            local playerGui = localPlayer:FindFirstChild("PlayerGui") 
-            if playerGui then 
-                for _, gui in pairs(playerGui:GetDescendants()) do 
-                    if gui:IsA("TextButton") or gui:IsA("ImageButton") then 
-                        local buttonText = string.lower(gui.Name) 
-                        if gui:IsA("TextButton") then 
-                            buttonText = buttonText .. string.lower(gui.Text) 
-                        end 
-                        if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then 
-                            if gui.Visible and gui.AbsoluteSize.X > 0 then 
-                                pcall(function() 
-                                    gui:Activate() 
-                                    for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end 
-                                    for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end 
-                                end) 
+        task.wait(0.5) -- Tốc độ kiểm tra 0.5 giây/lần cực nhanh
+        
+        -- 🌟 ĐIỀU KIỆN CHÍNH: Chỉ chạy tự hồi sinh nếu bạn đang BẬT nút Auto Farm (_G.AutoFarm == true)
+        if _G.AutoFarm then
+            local character = localPlayer.Character 
+            
+            -- Nếu nhân vật chết hoặc đang ở màn hình chờ chọn Spawn
+            if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then 
+                local playerGui = localPlayer:FindFirstChild("PlayerGui") 
+                if playerGui then 
+                    -- Quét tìm nút bấm màu xanh dương trong game
+                    for _, gui in pairs(playerGui:GetDescendants()) do 
+                        if gui:IsA("TextButton") or gui:IsA("ImageButton") then 
+                            local buttonName = string.lower(gui.Name)
+                            local buttonText = ""
+                            if gui:IsA("TextButton") then buttonText = string.lower(gui.Text) end
+                            
+                            -- Tìm chính xác nút ghi chữ "spawn" hiển thị trên màn hình của bạn
+                            if string.find(buttonName, "spawn") or string.find(buttonText, "spawn") then 
+                                -- Đảm bảo nút đang hiện diện trực tiếp trên giao diện màn hình
+                                if gui.Visible and gui.AbsoluteSize.X > 0 and gui.AbsolutePosition.Y > 0 then 
+                                    pcall(function() 
+                                        -- Kích hoạt đòn click gốc của Roblox
+                                        gui:Activate() 
+                                        
+                                        -- Kích hoạt trực tiếp các sự kiện kết nối chuột
+                                        if getconnections then
+                                            for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end 
+                                            for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end
+                                            for _, connection in pairs(getconnections(gui.Activated)) do connection:Fire() end
+                                        end
+                                        
+                                        -- TOÁN HỌC TỌA ĐỘ ẢO: Ép buộc chuột nhấn thẳng vào tâm nút Spawn màu xanh dương
+                                        local pos = gui.AbsolutePosition
+                                        local size = gui.AbsoluteSize
+                                        local centerX = pos.X + (size.X / 2)
+                                        local centerY = pos.Y + (size.Y / 2) + GuiService:GetGuiInset().Y
+                                        
+                                        VirtualUser:CaptureController()
+                                        VirtualUser:ClickButton1(Vector2.new(centerX, centerY))
+                                    end)
+                                end 
                             end 
                         end 
                     end 
                 end 
             end 
-        end 
+        end
     end 
 end)
-
 -- ====================================================================
 -- PHẦN 2: KHỞI CHẠY MENU, ĐÈN LED RGB VÀ LOGIC TÍNH NĂNG FARM QUÁI
 -- ====================================================================
