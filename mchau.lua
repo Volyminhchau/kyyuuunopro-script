@@ -217,6 +217,7 @@ _G.AutoFarm = false
 
 -- Danh sách tên quái cũ (vẫn giữ để ưu tiên nếu có)
 local targetNPCs = {
+    "Freyd",
     "Bandit",
     "Thug",
     "Angry bob",
