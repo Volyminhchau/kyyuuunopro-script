@@ -190,12 +190,12 @@ FarmTab:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN - CHỐNG KẸT TƯỜNG (RÌA MÉP ĐẢO)
+-- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN - GIỮA ĐẢO TRÊN CAO (80 STUDS)
 -- ====================================================================
 -- Khởi tạo nút "Teleport 🌀" ở thanh bên trái nằm ngay dưới nút Farm
 local TeleportTab = MainMenu:CreateTab("Teleport 🌀")
 
--- Hàm phụ trách dò tìm đảo và đưa người chơi đáp xuống RÌA MÉP ĐẢO an toàn
+-- Hàm phụ trách dò tìm đảo và đưa người chơi đáp xuống GIỮA ĐẢO TRÊN CAO an toàn
 local function teleportToIsland(islandName)
     if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local myRoot = localPlayer.Character.HumanoidRootPart
@@ -210,30 +210,24 @@ local function teleportToIsland(islandName)
         end
         
         if foundIsland then
-            local islandCFrame, islandSize
+            local islandCFrame
             
-            -- Tự động tính toán kích thước và vị trí của đảo bất kể là Model hay Part
+            -- Xác định tọa độ trung tâm (Center CFrame) của hòn đảo
             if foundIsland:IsA("Model") then
-                islandCFrame, islandSize = foundIsland:GetBoundingBox()
+                islandCFrame = foundIsland:GetBoundingBox()
             else
                 islandCFrame = foundIsland.CFrame
-                islandSize = foundIsland.Size
             end
             
-            -- 🌟 PHÉP TOÁN DỊCH RA RÌA MÉP ĐẢO:
-            -- Tính khoảng cách một nửa chiều dài đảo theo trục Z (Rìa đảo)
-            local offsetZ = (islandSize.Z / 2) - 5 -- Trừ hao 5 studs để không bị rơi xuống biển
-            
-            -- Đưa nhân vật ra mép ngoài cùng của đảo và nâng độ cao lên 15 studs để tránh kẹt đá/tường
-            local safeCFrame = islandCFrame * CFrame.new(0, 15, offsetZ)
+            -- 🌟 PHÉP TOÁN GIỮA ĐẢO TRÊN CAO:
+            -- Lấy tâm đảo và cộng thêm 80 studs theo trục Y (độ cao thẳng đứng)
+            local safeCFrame = islandCFrame * CFrame.new(0, 80, 0)
             
             -- Thực hiện dịch chuyển an toàn
             myRoot.CFrame = safeCFrame
         end
     end
 end
-
-
 
 -- TẠO CÁC NÚT DỊCH CHUYỂN BÊN TRONG MỤC TELEPORT
 -- ⚠️ Hãy nhớ thay thế chữ tiếng Anh trong dấu "" thành tên hòn đảo thật trong game của bạn nhé!
