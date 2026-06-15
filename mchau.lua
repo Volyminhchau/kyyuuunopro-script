@@ -365,12 +365,12 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS TỐI TÂN - TỰ ĐỘNG BAY THEO ĐỊA HÌNH (VÁ LỖI ĐỨNG IM)
+-- PHẦN 3: LOGIC COMPASS TỐI TÂN - DỊCH CHUYỂN TỨC THỜI ĐẾN THẲNG GỐC CÂY KHO BÁU
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
 
--- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT (Bản chuẩn của bạn)
+-- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Giữ nguyên bản chuẩn gốc của bạn)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -407,7 +407,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: CƠ CHẾ XE BAY PREMIUM - TỰ ĐỘNG NÂNG ĐỘ CAO THEO SƯỜN NÚI (FIX ĐỨNG IM)
+-- 🌟 NÚT 2: QUÉT MAP ĐOÁN HƯỚNG KIM ĐỎ - BIẾN HÌNH ĐẾN THẲNG GỐC CÂY KHO BÁU LẬP TỨC
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -423,13 +423,13 @@ tab3:CreateToggle({
             
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.01)
+                    task.wait(0.1) -- Tốc độ quét tìm đảo và cây kho báu ổn định
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- Tự động lấy la bàn ra cầm
+                        -- Tự lấy la bàn ra cầm trên tay
                         local bpc = pObj.Backpack:FindFirstChild("Compass")
                         if bpc then bpc.Parent = char end
                         
@@ -437,83 +437,73 @@ tab3:CreateToggle({
                         if hc then
                             pcall(function() hc:Activate() end)
                             
-                            -- Đọc hướng mũi kim la bàn game
+                            -- Đọc hướng kim đỏ la bàn chuẩn xác
                             local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle") or hc:FindFirstChildOfClass("MeshPart") or hc:FindFirstChildOfClass("Part")
                             local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
+                            local flatDirection = Vector3.new(rd.X, 0, rd.Z).Unit
                             
-                            -- Khử lỗi chia cho 0 gây kẹt nhân vật
-                            local flatDirection = Vector3.new(rd.X, 0, rd.Z)
-                            if flatDirection.Magnitude > 0 then
-                                flatDirection = flatDirection.Unit
-                            else
-                                flatDirection = Vector3.new(mr.CFrame.LookVector.X, 0, mr.CFrame.LookVector.Z).Unit
+                            -- 🌟 RADA QUÉT GỐC CÂY KHO BÁU (TREASURE TREE):
+                            local targetTree = nil
+                            local shortestDistance = math.huge
+                            
+                            -- Tìm tất cả vật thể trong map chứa từ khóa: tree (cây), treasure (kho báu), chest (rương)
+                            for _, obj in pairs(workspace:GetDescendants()) do
+                                if obj:IsA("BasePart") or obj:IsA("Model") then
+                                    local objName = string.lower(obj.Name)
+                                    if string.find(objName, "tree") or string.find(objName, "treasure") or string.find(objName, "chest") then
+                                        -- Loại bỏ chướng ngại vật quá gần xuất phát hoặc thuộc về người chơi
+                                        if not obj:IsAncestorOf(char) then
+                                            local partPos = obj:IsA("Model") and (obj.PrimaryPart and obj.PrimaryPart.Position or obj:FindFirstChildOfClass("BasePart") and obj:FindFirstChildOfClass("BasePart").Position) or obj.Position
+                                            
+                                            if partPos then
+                                                -- Toán học Vector: Kiểm tra xem cái cây đó có nằm đúng hướng kim la bàn đang chỉ hay không
+                                                local vectorToObj = (partPos - mr.Position).Unit
+                                                local dotProduct = flatDirection:Dot(Vector3.new(vectorToObj.X, 0, vectorToObj.Z).Unit)
+                                                
+                                                -- Nếu góc lệch cực nhỏ (>0.95 nghĩa là cái cây nằm thẳng băng ngay trước mũi kim la bàn)
+                                                if dotProduct > 0.95 then
+                                                    local dist = (partPos - mr.Position).Magnitude
+                                                    if dist < shortestDistance then
+                                                        shortestDistance = dist
+                                                        targetTree = obj
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
                             end
                             
-                            -- Kiểm tra nếu la bàn xoay loạn góc (Đã đến bãi kho báu)
-                            local aC = math.acos(math.clamp(lastD:Dot(flatDirection), -1, 1))
-                            if aC > math.rad(90) and lastD.Magnitude > 0 then
-                                sTim = sTim + 1
-                                if sTim > 10 then
-                                    mr.Anchored = false
-                                    -- Kích hoạt click chuột ảo liên hoàn đào rương báu
-                                    for i = 1, 30 do
-                                        task.wait(0.05)
-                                        pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
-                                    end
-                                    sTim = 0
-                                end
-                            else
-                                sTim = 0
+                            -- 🌟 THỰC HIỆN DỊCH CHUYỂN TỨC THỜI (INSTANT TP TO TREE):
+                            if targetTree then
                                 mr.Anchored = true
+                                local treePos = targetTree:IsA("Model") and (targetTree.PrimaryPart and targetTree.PrimaryPart.CFrame or targetTree:FindFirstChildOfClass("BasePart").CFrame) or targetTree.CFrame
                                 
-                                -- 🌟 THUẬT TOÁN BẮN TIA TỰ ĐỘNG THÔNG MINH CAO CẤP:
-                                local raycastParams = RaycastParams.new()
-                                raycastParams.FilterFolder = {char, workspace.Camera}
-                                raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                                -- Đáp thẳng xuống đất ngay cạnh gốc cây kho báu (Nâng lên 2 studs để tránh lọt đất)
+                                mr.CFrame = treePos * CFrame.new(0, 2, 4)
+                                task.wait(0.2)
+                                mr.Anchored = false
                                 
-                                -- Bắn tia thẳng xuống dưới từ người bạn
-                                local raycastResult = workspace:Raycast(mr.Position, Vector3.new(0, -300, 0), raycastParams)
-                                
-                                local targetHeight = 60 -- Mặc định nếu bay ngoài biển sâu, giữ độ cao an toàn 60 studs chống tụt xuống nước
-                                
-                                if raycastResult and raycastResult.Position then
-                                    -- 🌟 ĐÃ SỬA: Nếu bắn trúng địa hình/sườn núi, tự nâng người lên cao hơn bề mặt đất đó 45 studs
-                                    targetHeight = raycastResult.Position.Y + 45
-                                else
-                                    -- 🌟 ĐÃ SỬA: Nếu ở ngoài biển sâu (Raycast rỗng), tự động đồng bộ theo độ cao mốc Y an toàn để không bị đứng im
-                                    targetHeight = 60
+                                -- Tự động xả chiêu đào báu liên tục x30 lần click chuột
+                                for i = 1, 30 do
+                                    task.wait(0.04)
+                                    pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                 end
-                                
-                                -- 🌟 TỐC ĐỘ DI CHUYỂN SIÊU TỐC AN TOÀN TRÊN KHÔNG TRUNG: 
-                                -- Tịnh tiến 6 studs mỗi vòng lặp giúp vượt đại dương cực nhanh, mượt mà bẻ gãy Anti-cheat
-                                local nextPos = mr.Position + (flatDirection * 6)
-                                mr.CFrame = CFrame.new(Vector3.new(nextPos.X, targetHeight, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, targetHeight, nextPos.Z + flatDirection.Z))
+                                task.wait(1) -- Chờ nhận thưởng kho báu
+                            else
+                                -- Biện pháp dự phòng: Nếu chưa quét ra cây ở xa, nhấc người lên trời 100 studs và lướt nhanh theo kim đỏ để tìm
+                                mr.Anchored = true
+                                local nextPos = mr.Position + (flatDirection * 40) -- Bước nhảy lướt sóng 40 studs cực nhanh
+                                mr.CFrame = CFrame.new(Vector3.new(nextPos.X, 100, nextPos.Z), Vector3.new(nextPos.X + flatDirection.X, 100, nextPos.Z + flatDirection.Z))
                             end
                             lastD = flatDirection
-                            
-                            -- Tự động bật chế độ bất tử nước biển, không bơi mất máu khi chạm nước
-                            if hum:GetState() == Enum.HumanoidStateType.Swimming then
-                                hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
-                                hum:ChangeState(Enum.HumanoidStateType.Running)
-                            end
-                        else
-                            mr.Anchored = true
-                            mr.CFrame = CFrame.new(mr.Position.X, mr.Position.Y, mr.Position.Z)
                         end
                     end
                 end
-                if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then
-                    pObj.Character.HumanoidRootPart.Anchored = false
-                    local hum = pObj.Character:FindFirstChildOfClass("Humanoid")
-                    if hum then hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true) end
-                end
+                if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then pObj.Character.HumanoidRootPart.Anchored = false end
             end)
         else
-            if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then
-                pObj.Character.HumanoidRootPart.Anchored = false
-                local hum = pObj.Character:FindFirstChildOfClass("Humanoid")
-                if hum then hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true) end
-            end
+            if pObj.Character and pObj.Character:FindFirstChild("HumanoidRootPart") then pObj.Character.HumanoidRootPart.Anchored = false end
         end
     end
 })
