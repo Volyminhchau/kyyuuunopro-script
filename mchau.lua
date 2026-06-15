@@ -366,7 +366,7 @@ TeleportTab:CreateToggle({
     Name = "Dịch chuyển đến Flag 1",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then teleportToIsland("Flag 1") end
+        if Value then teleportToIsland("Flag") end
         end
 })
 TeleportTab:CreateToggle({
