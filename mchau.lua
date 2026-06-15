@@ -366,41 +366,40 @@ TeleportTab:CreateToggle({
 -- ====================================================================
 -- PHẦN ĐUÔI COMPASS MỚI: ĐÃ ĐỒNG BỘ CHUẨN BIẾN TAB3 (HIỆN MENU 100%)
 -- ====================================================================
-local lastD = Vector3.new(0, 0, 0)
-local sTim = 0
+-- ====================================================================
+-- PHẦN 3: LOGIC MỤC COMPASS SIÊU TỐC KHÓA TRỜI CAO 80 STUDS CHỐNG ĐÂM BIỂN
+-- ====================================================================
+local lastDirection = Vector3.new(0, 0, 0) 
+local standTimer = 0
 local tab3 = MainMenu:CreateTab("Compass 🧭")
--- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Đã đổi thành tab3)
+-- 🌟 NÚT 1: TELEPORT NHẶT COMPASS RƠI TRÊN ĐẤT
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
-    Callback = function(v)
-        _G.AutoPickCompass = v
+    Callback = function(Value)
+        _G.AutoPickCompass = Value
         if _G.AutoPickCompass then
             task.spawn(function()
                 while _G.AutoPickCompass do
                     task.wait(0.1)
-                    local char = localPlayer.Character
-                    if char and char:FindFirstChild("HumanoidRootPart") then
-                        local mr = char.HumanoidRootPart
-                        local tC = nil
-                        
-                        -- Quét tìm la bàn rơi rải rác trên bản đồ
-                        for _, o in pairs(workspace:GetDescendants()) do
-                            if string.find(string.lower(o.Name), "compass") then
-                                if o:IsA("Tool") and o:FindFirstChild("Handle") then
-                                    tC = o.Handle break
-                                elseif o:IsA("BasePart") and not o:IsAncestorOf(char) then
-                                    tC = o break
+                    local character = localPlayer.Character
+                    if character and character:FindFirstChild("HumanoidRootPart") then
+                        local myRoot = character.HumanoidRootPart
+                        local targetCompass = nil
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if string.find(string.lower(obj.Name), "compass") then
+                                if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
+                                    targetCompass = obj.Handle break
+                                elseif obj:IsA("BasePart") and not obj:IsAncestorOf(character) then
+                                    targetCompass = obj break
                                 end
                             end
                         end
-                        
-                        -- Nếu tìm thấy thì bay tới hút vào túi
-                        if tC then
-                            mr.Anchored = true
-                            mr.CFrame = tC.CFrame * CFrame.new(0, 2, 0)
+                        if targetCompass then
+                            myRoot.Anchored = true
+                            myRoot.CFrame = targetCompass.CFrame * CFrame.new(0, 2, 0)
                             task.wait(0.2)
-                            mr.Anchored = false
+                            myRoot.Anchored = false
                         end
                     end
                 end
@@ -409,81 +408,105 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: BAY TRÊN CAO THEO KIM ĐỎ VÀ TỰ ĐỘNG ĐÁP XUỐNG ĐÀO KHO BÁU (Đã đổi thành tab3)
+-- 🌟 NÚT 2: BAY TRÊN TRỜI CAO CỐ ĐỊNH 80 STUDS + TỐC ĐỘ X20 THEO KIM ĐỎ CHUẨN ĐÍCH
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
-    Callback = function(v)
-        _G.AutoFlyToCompassDirection = v
+    Callback = function(Value)
+        _G.AutoFlyToCompassDirection = Value
         if _G.AutoFlyToCompassDirection then
-            lastD = Vector3.new(0, 0, 0)
-            sTim = 0
+            lastDirection = Vector3.new(0, 0, 0)
+            standTimer = 0
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.01)
-                    local char = localPlayer.Character
-                    if char and char:FindFirstChild("HumanoidRootPart") then
-                        local mr = char.HumanoidRootPart
+                    task.wait(0.01) -- Giảm trễ tối đa giúp bay cực mượt
+                    local character = localPlayer.Character
+                    if character and character:FindFirstChild("HumanoidRootPart") then
+                        local myRoot = character.HumanoidRootPart
                         
-                        -- Tự lấy la bàn đeo lên tay nếu đang cất trong balo
-                        local bpc = localPlayer.Backpack:FindFirstChild("Compass")
-                        if bpc then bpc.Parent = char end
+                        -- Tự lấy la bàn ra cầm trên tay
+                        local backpackCompass = localPlayer.Backpack:FindFirstChild("Compass")
+                        if backpackCompass then backpackCompass.Parent = character end
                         
-                        local hc = char:FindFirstChild("Compass")
-                        if hc then
-                            pcall(function() hc:Activate() end)
+                        local holdingCompass = character:FindFirstChild("Compass")
+                        if holdingCompass then
+                            pcall(function() holdingCompass:Activate() end)
                             
-                            -- Quét tìm linh hồn mũi kim dò hướng màu đỏ của game
-                            local nd = hc:FindFirstChild("Needle") 
-                                or hc:FindFirstChild("Pointer") 
-                                or hc:FindFirstChild("Arrow") 
-                                or hc:FindFirstChild("Handle") 
-                                or hc:FindFirstChildOfClass("MeshPart") 
-                                or hc:FindFirstChildOfClass("Part")
+                            -- 🌟 BỘ LỌC TÌM TOẠ ĐỘ ĐÍCH TRỰC TIẾP TỪ LA BÀN HỆ THỐNG GỐC CỦA GAME
+                            local finalVector = nil
                             
-                            local rd = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
-                            local fd = Vector3.new(rd.X, 0, rd.Z).Unit
-                            local aC = math.acos(math.clamp(lastD:Dot(fd), -1, 1))
-                            
-                            -- HỆ THỐNG ĐÁP ĐẤT KHI TỚI NƠI (Kim la bàn quay loạn góc)
-                            if aC > math.rad(90) and lastD.Magnitude > 0 then
-                                sTim = sTim + 1
-                                if sTim > 10 then
-                                    mr.Anchored = false
-                                    -- Đập chuột ảo liên hoàn 1.5 giây để đào/nhặt hốt kho báu
-                                    for i = 1, 30 do
-                                        task.wait(0.05)
-                                        pcall(function()
-                                            vU:CaptureController()
-                                            vU:ClickButton1(Vector2.new(9999, 9999))
-                                        end)
+                            -- Cách A: Lấy hướng xoay từ camera/mũi tên ẩn của la bàn game gửi lên màn hình UI
+                            local pGui = localPlayer:FindFirstChild("PlayerGui")
+                            if pGui then
+                                for _, v in pairs(pGui:GetDescendants()) do
+                                    if v:IsA("ImageLabel") and (string.find(string.lower(v.Name), "arrow") or string.find(string.lower(v.Name), "pointer") or string.find(string.lower(v.Name), "kim")) then
+                                        if v.Visible and v.AbsoluteSize.X > 0 then
+                                            -- Ép nhân vật quay mặt đi theo góc xoay (Rotation) của bức ảnh mũi tên trên màn hình
+                                            local angle = math.rad(v.Rotation)
+                                            finalVector = Vector3.new(math.sin(angle), 0, math.cos(angle)).Unit
+                                            break
+                                        end
                                     end
-                                    sTim = 0
-                                    -- Đào xong bay vọt lên lại trời cao 70 studs để đi tìm rương khác
-                                    mr.CFrame = CFrame.new(mr.Position.X, 70, mr.Position.Z)
+                                end
+                            end
+                            
+                            -- Cách B: Dò tìm vị trí khối Waypoint ẩn do la bàn tạo ra trong Workspace
+                            if not finalVector then
+                                for _, obj in pairs(workspace:GetChildren()) do
+                                    if string.find(string.lower(obj.Name), "waypoint") or string.find(string.lower(obj.Name), "island_target") or string.find(string.lower(obj.Name), "chest_pos") then
+                                        if obj:IsA("BasePart") or obj:IsA("Vector3Value") then
+                                            local targetPos = obj:IsA("Vector3Value") and obj.Value or obj.Position
+                                            finalVector = Vector3.new(targetPos.X - myRoot.Position.X, 0, targetPos.Z - myRoot.Position.Z).Unit
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            -- Biện pháp dự phòng C: Lấy hướng mặt trước của tay/la bàn nếu game dùng cơ chế xoay nhân vật mặc định
+                            if not finalVector then
+                                local needle = holdingCompass:FindFirstChild("Needle") or holdingCompass:FindFirstChild("Pointer") or holdingCompass:FindFirstChild("Arrow") or holdingCompass:FindFirstChild("Handle") or holdingCompass:FindFirstChildOfClass("MeshPart") or holdingCompass:FindFirstChildOfClass("Part")
+                                local rd = needle and needle.CFrame.LookVector or myRoot.CFrame.LookVector
+                                finalVector = Vector3.new(rd.X, 0, rd.Z).Unit
+                            end
+                            
+                            -- Khóa trọng lực để bay an toàn
+                            myRoot.Anchored = true
+                            
+                            -- Tính toán góc loạn la bàn khi đã chạm bãi đào kho báu
+                            local angleChange = math.acos(math.clamp(lastDirection:Dot(finalVector), -1, 1))
+                            if angleChange > math.rad(90) and lastDirection.Magnitude > 0 then
+                                standTimer = standTimer + 1
+                                if standTimer > 10 then
+                                    myRoot.Anchored = false
+                                    -- Đáp xuống đất đập chuột chém liên tục 1.5 giây để hốt báu vật
+                                    for i = 1, 30 do 
+                                        task.wait(0.05) 
+                                        pcall(function() VirtualUser:CaptureController() VirtualUser:ClickButton1(Vector2.new(9999, 9999)) end) 
+                                    end
+                                    standTimer = 0 
+                                    -- Đào xong ép vọt lên trời cao 80 studs để đi tìm rương tiếp theo
+                                    myRoot.CFrame = CFrame.new(myRoot.Position.X, 80, myRoot.Position.Z)
                                 end
                             else
-                                -- Nếu đi đúng đường, tiếp tục bay tốc độ cao ổn định trên trời
-                                sTim = 0
-                                mr.Anchored = true
-                                local np = mr.Position + (fd * 12)
-                                -- Khóa chặt trục Y cứng ở mốc 70 studs chống tuyệt đối đâm xuống nước biển
-                                mr.CFrame = CFrame.new(Vector3.new(np.X, 70, np.Z), Vector3.new(np.X + fd.X, 70, np.Z + fd.Z))
+                                standTimer = 0
+                                
+                                -- 🌟 SỬA VÁ LỖI TOÁN HỌC PHẲNG: Nhân với 20 giúp nhân vật bay siêu tốc xé gió vượt biển cực nhanh
+                                local nextPos = myRoot.Position + (finalVector * 20)
+                                
+                                -- 🌟 ÉP CHẶT TRỤC Y KHÓA CỨNG Ở MỨC ĐỘ CAO 80 STUDS: Tuyệt đối không bao giờ bị đâm hay tụt xuống nước biển
+                                myRoot.CFrame = CFrame.new(Vector3.new(nextPos.X, 80, nextPos.Z), Vector3.new(nextPos.X + finalVector.X, 80, nextPos.Z + finalVector.Z))
                             end
-                            lastD = fd
+                            lastDirection = finalVector
                         else
-                            mr.Anchored = false
+                            myRoot.Anchored = false
                         end
                     end
                 end
-                if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    localPlayer.Character.HumanoidRootPart.Anchored = false
-                end
+                if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then localPlayer.Character.HumanoidRootPart.Anchored = false end
             end)
         else
-            if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                localPlayer.Character.HumanoidRootPart.Anchored = false
-            end
+            if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then localPlayer.Character.HumanoidRootPart.Anchored = false end
         end
     end
 })
