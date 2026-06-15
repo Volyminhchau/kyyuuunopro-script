@@ -142,66 +142,60 @@ function MyLibrary:CreateWindow(titleText)
 end
 
 -- ====================================================================
--- PHẦN 1.2: HỆ THỐNG AUTO SPAWN TỐI TÂN - ÉP BUỘC HỒI SINH TRỰC TIẾP QUA SERVER
+-- PHẦN 1.2: HỆ THỐNG GIẢ LẬP CLICK TOÀN NĂNG - ÉP BẤM NÚT SPAWN MÀU XANH
 -- ====================================================================
 local PlayersService = game:GetService("Players") 
 local localPlayer = PlayersService.LocalPlayer 
-local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager") -- Dịch vụ click chuột/chạm tay cấp cao
+local GuiService = game:GetService("GuiService")
 
 task.spawn(function() 
     while true do 
-        task.wait(0.5) -- Tốc độ quét 0.5 giây/lần
+        task.wait(0.5) -- Kiểm tra liên tục mỗi 0.5 giây để hồi sinh ngay lập tức
         
-        -- Chỉ chạy khi công tắc Auto Farm đang BẬT (_G.AutoFarm == true)
+        -- Chỉ tự động bấm nút Spawn khi bạn đang BẬT nút Auto Farm (_G.AutoFarm == true)
         if _G.AutoFarm then
             local character = localPlayer.Character 
             
-            -- Nếu nhân vật chết, hết máu hoặc đang bị kẹt ở màn hình chọn Spawn
+            -- Nếu nhân vật chết hoặc đang kẹt ở màn hình chọn Spawn hiển thị trong ảnh
             if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then 
-                pcall(function()
-                    -- CÁCH 1: Gửi lệnh yêu cầu hồi sinh gốc của Roblox (Bỏ qua chặn từ Client)
-                    localPlayer:RequestRespawn()
-                end)
-                
-                -- CÁCH 2: DÒ TÌM SỰ KIỆN REMOTE HỒI SINH CỦA GAME (Phổ biến trong các game RPG/One Piece)
-                pcall(function()
-                    for _, remote in pairs(game:GetDescendants()) do
-                        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
-                            local remoteName = string.lower(remote.Name)
-                            -- Nếu tìm thấy các cổng sự kiện tên là spawn, respawn, loadcharacter, loadplayer
-                            if string.find(remoteName, "spawn") or string.find(remoteName, "respawn") or string.find(remoteName, "loadchar") then
-                                if remote:IsA("RemoteEvent") then
-                                    remote:FireServer() -- Bắn tín hiệu bắt server hồi sinh bạn ngay
-                                elseif remote:IsA("RemoteFunction") then
-                                    remote:InvokeServer()
-                                end
-                            end
-                        end
-                    end
-                end)
-                
-                -- CÁCH 3: QUÉT SÂU VÀ CLICK LỚP PHỦ NÚT BẤM (GIẢ LẬP NHẤP TOÀN MÀN HÌNH CHỌN)
                 local playerGui = localPlayer:FindFirstChild("PlayerGui") 
                 if playerGui then 
+                    -- Quét mọi vật thể UI để tìm cái nút ghi chữ "Spawn" viết hoa
                     for _, gui in pairs(playerGui:GetDescendants()) do 
-                        if (gui:IsA("TextButton") or gui:IsA("ImageButton")) and gui.Visible then 
-                            local btnText = gui:IsA("TextButton") and string.lower(gui.Text) or ""
-                            local btnName = string.lower(gui.Name)
+                        if gui:IsA("TextButton") then
+                            -- Ép kiểu chữ hoa/thường để tránh lỗi viết sai chính tả tên nút
+                            local buttonText = string.gsub(gui.Text, "%s+", "") -- Xóa khoảng trắng thừa
                             
-                            if string.find(btnText, "spawn") or string.find(btnName, "spawn") then
-                                pcall(function()
-                                    -- Cưỡng ép giả lập sự kiện bấm nút bằng tất cả các kết nối hiện có
-                                    gui:Activate()
-                                    if getconnections then
-                                        for _, con in pairs(getconnections(gui.MouseButton1Click)) do con:Fire() end
-                                        for _, con in pairs(getconnections(gui.MouseButton1Down)) do con:Fire() end
-                                    end
-                                end)
+                            -- Khóa mục tiêu nếu thấy nút ghi chữ "Spawn" y hệt trong ảnh của bạn
+                            if string.lower(buttonText) == "spawn" then
+                                -- Kiểm tra nếu nút đang xuất hiện và có kích thước thật trên màn hình
+                                if gui.AbsoluteSize.X > 0 and gui.AbsoluteSize.Y > 0 then
+                                    pcall(function()
+                                        -- Lớp 1: Gửi lệnh kích hoạt gốc
+                                        gui:Activate()
+                                        
+                                        -- Lớp 2: Mô phỏng hành động CLICK CHẠM TAY VÀO MÀN HÌNH ĐIỆN THOẠI (Lookat đúng tâm nút xanh)
+                                        local posX = gui.AbsolutePosition.X + (gui.AbsoluteSize.X / 2)
+                                        local posY = gui.AbsolutePosition.Y + (gui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
+                                        
+                                        -- Nhấp chuột xuống và nhấc chuột lên tại tâm nút Spawn
+                                        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
+                                        task.wait(0.05)
+                                        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
+                                        
+                                        -- Lớp 3: Kích hoạt tất cả các hàm sự kiện OnClick ẩn của nút
+                                        if getconnections then
+                                            for _, con in pairs(getconnections(gui.MouseButton1Click)) do con:Fire() end
+                                            for _, con in pairs(getconnections(gui.MouseButton1Down)) do con:Fire() end
+                                            for _, con in pairs(getconnections(gui.Activated)) do con:Fire() end
+                                        end
+                                    end)
+                                end
                             end
                         end 
                     end 
                 end
-                
             end 
         end
     end 
