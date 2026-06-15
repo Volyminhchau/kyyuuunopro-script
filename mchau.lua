@@ -217,7 +217,6 @@ _G.AutoFarm = false
 
 -- Danh sách chính xác các NPC bạn muốn farm trên toàn map
 local targetNPCs = {
-    "Bandit",
     "Thug",
     "Angry bob",
     "Angry Freddy",
