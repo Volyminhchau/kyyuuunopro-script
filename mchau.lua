@@ -1,15 +1,21 @@
--- 1. Gọi file giao diện (File 1) chính chủ từ GitHub của bạn về game
-local myLibrary = loadstring(game:HttpGet("LINK_RAW_FILE_1_CỦA_BẠN"))()
+-- ====================================================================
+-- 1. DÁN LINK RAW FILE 1 CỦA BẠN VÀO ĐÂY ĐỂ TỰ ĐỘNG DỰNG GUI MENU
+-- ====================================================================
+local linkFile1 = "https://githubusercontent.com" -- Thay bằng link Raw File 1 của bạn
+local myLibrary = loadstring(game:HttpGet(linkFile1))()
 
--- 2. Khởi tạo cửa sổ menu
+-- ====================================================================
+-- 2. ĐOẠN CODE TÍNH NĂNG CỦA FILE 2 (CHẠY TRỰC TIẾP TRÊN EXECUTOR)
+-- ====================================================================
+-- Khởi tạo cửa sổ menu từ File 1 kéo về
 local MainMenu = myLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
--- Cấu hình hệ thống
+-- Cấu hình hệ thống Auto Farm
 local _G = _G or {}
 _G.AutoFarm = false
 local npcName = "Tên_NPC_Ở_Đây" -- ⚠️ Hãy ĐỔI thành tên chính xác của quái vật trong game của bạn
 
--- 3. Tạo nút bật tắt Auto Farm lồng logic dịch chuyển và tự đánh vào giao diện
+-- Tạo nút bật tắt Auto Farm dịch chuyển và tự đánh
 MainMenu:CreateToggle({
     Name = "Auto Farm Mobs",
     CurrentValue = false,
