@@ -169,7 +169,7 @@ task.spawn(function()
                             if gui:IsA("TextButton") then buttonText = string.lower(gui.Text) end
                             
                             -- Tìm chính xác nút ghi chữ "spawn" hiển thị trên màn hình của bạn
-                            if string.find(buttonName, "spawn") or string.find(buttonText, "spawn") then 
+                            if string.find(buttonName, "spawn") or string.find(buttonText, "Spawn") then 
                                 -- Đảm bảo nút đang hiện diện trực tiếp trên giao diện màn hình
                                 if gui.Visible and gui.AbsoluteSize.X > 0 and gui.AbsolutePosition.Y > 0 then 
                                     pcall(function() 
