@@ -401,12 +401,12 @@ TeleportTab:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN 3: LOGIC MỤC COMPASS THÔNG MINH (ĐÃ SỬA ĐỒNG BỘ BIẾN TAB3 CHUẨN 100%)
+-- PHẦN 3: LOGIC MỤC COMPASS THÔNG MINH (BẢN VÁ LỖI KHÔNG KHỞI CHẠY ĐƯỢC)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 local sTim = 0
 
--- 🌟 NÚT 1: TELEPORT NHẶT LA BÀN RƠI TRÊN ĐẤT (Đã đổi sang tab3)
+-- 🌟 NÚT 1: TELEPORT NHẶT LA BÀN RƠI TRÊN ĐẤT
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -448,7 +448,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: BAY TRÊN CAO THEO KIM ĐỎ VÀ TỰ ĐÁP XUỐNG ĐÀO KHO BÁU (Đã đổi sang tab3)
+-- 🌟 NÚT 2: BAY TRÊN CAO THEO KIM ĐỎ VÀ TỰ ĐÁP XUỐNG ĐÀO KHO BÁU
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -525,8 +525,7 @@ tab3:CreateToggle({
             end)
         else
             if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-                relativeRoot = lp.Character.HumanoidRootPart
-                relativeRoot.Anchored = false
+                lp.Character.HumanoidRootPart.Anchored = false
             end
         end
     end
