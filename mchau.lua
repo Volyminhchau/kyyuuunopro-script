@@ -205,9 +205,9 @@ task.spawn(function()
     end
 end)
 -- ====================================================================
--- PHẦN 3: KHỞI CHẠY MENU VỚI THANH TAB & CONFIG AUTO FARM (ĐẦY ĐỦ)
+-- PHẦN 3: KHỞI CHẠY MENU VỚI THANH TAB & CONFIG AUTO FARM (ĐÃ SỬA GÓC QUAY)
 -- ====================================================================
-local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Premium Hub v2 🚀")
+local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
 -- Tạo mục Farm ở thanh danh mục bên trái
 local FarmTab = MainMenu:CreateTab("Farm ⚔️")
@@ -217,6 +217,7 @@ _G.AutoFarm = false
 
 -- Danh sách chính xác các NPC bạn muốn farm trên toàn map
 local targetNPCs = {
+    "Bandit",
     "Thug",
     "Angry bob",
     "Angry Freddy",
@@ -269,8 +270,9 @@ FarmTab:CreateToggle({
                             if targetNPC then
                                 local npcRoot = targetNPC.HumanoidRootPart
                                 
-                                -- Dịch chuyển ra sau lưng quái
-                                rootPart.CFrame = npcRoot.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
+                                -- [SỬA LỖI TẠI ĐÂY]: Tính vị trí sau lưng và ép xoay mặt nhìn thẳng vào NPC
+                                local targetPosition = npcRoot.Position + (npcRoot.CFrame.LookVector * -2.5)
+                                rootPart.CFrame = CFrame.new(targetPosition, npcRoot.Position)
                                 
                                 -- Tự động trang bị vũ khí trên tay
                                 local tool = character:FindFirstChildOfClass("Tool")
@@ -294,3 +296,4 @@ FarmTab:CreateToggle({
         end
     end
 })
+
