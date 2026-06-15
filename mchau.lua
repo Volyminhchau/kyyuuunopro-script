@@ -365,7 +365,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - ĐÃ SỬA LỖI TREO BỘ NÃO (CHẠY 100%)
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - CƯỠNG ÉP CẦM TOOL BẰNG HUMANOID (CHẠY 100%)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 
@@ -406,7 +406,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: VÒNG LẶP AUTO QUÉT BALO + THOÁT BẪY ĐÓNG BĂNG + INSTANT TP LIÊN TỤC
+-- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL HỢP LỆ + BẺ KHÓA DỊCH CHUYỂN TỨC THỜI
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -418,32 +418,33 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Vòng lặp chạy ngầm liên tục khi nút gạt bật ON
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.3) -- Kiểm tra balo liên tục tốc độ cao cực mượt
+                    task.wait(0.3) -- Tốc độ quét balo liên tục chống lag
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- 🌟 BỘ TỰ ĐỘNG CẦM LA BÀN: Lùng sục trong người xem có món đồ la bàn nào không
-                        local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass") or char:FindFirstChildOfClass("Tool")
+                        -- Kiểm tra xem trên tay đã cầm la bàn chưa
+                        local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass")
                         
+                        -- 🌟 NẾU CHƯA CẦM: Dùng lệnh hệ thống ép nhân vật tự động cầm la bàn ra tay hợp lệ
                         if not hc then
                             for _, item in pairs(pObj.Backpack:GetChildren()) do
                                 local itemName = string.lower(item.Name)
-                                if string.find(itemName, "com") or string.find(itemName, "la") then
-                                    item.Parent = char -- Tự động lôi từ balo ép cầm lên tay
+                                if string.find(itemName, "comp") or string.find(itemName, "la ban") then
+                                    hum:EquipTool(item) -- Lệnh gọi Tool chuẩn của Roblox chống kẹt
                                     hc = item
+                                    task.wait(0.1)
                                     break
                                 end
                             end
                         end
                         
-                        -- Nếu tìm thấy và đã cầm trên tay thành công, tiến hành phá bẫy dịch chuyển luôn
-                        if hc and (string.find(string.lower(hc.Name), "com") or string.find(string.lower(hc.Name), "la")) then
-                            pcall(function() hc:Activate() end) -- Kích hoạt la bàn dò hướng
+                        -- Tiến hành xử lý dịch chuyển khi đã cầm la bàn trên tay
+                        if hc then
+                            pcall(function() hc:Activate() end) -- Kích hoạt la bàn
                             task.wait(0.15) -- Chờ game nạp vị trí rương ẩn
                             
                             -- Khử hoàn toàn lỗi đóng băng chân của cây la bàn game
@@ -476,7 +477,7 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Hướng C: Đọc hướng kim đỏ la bàn phẳng (ĐÃ SỬA VÁ LỖI GÂY TREO CODE)
+                            -- Hướng C: Đọc hướng kim đỏ la bàn phẳng làm phương án dự phòng
                             if not treasurePosition then
                                 local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle")
                                 local flyDir = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
@@ -490,7 +491,7 @@ tab3:CreateToggle({
                                 if raycastResult and raycastResult.Position then
                                     treasurePosition = raycastResult.Position
                                 else
-                                    -- Dự phòng nhảy chặng 3500 studs phẳng theo hướng kim la bàn chỉ mặt đất
+                                    -- Nhảy chặng phẳng 3500 studs theo hướng kim la bàn chỉ mặt đất
                                     treasurePosition = mr.Position + (flatDirection * 3500)
                                 end
                             end
@@ -499,7 +500,6 @@ tab3:CreateToggle({
                             if treasurePosition then
                                 mr.Anchored = true -- Khóa trọng lực tạm thời tránh lọt map
                                 
-                                -- Đồng bộ góc quay mặt nhân vật thẳng hướng đích
                                 local targetCFrame = CFrame.new(Vector3.new(treasurePosition.X, treasurePosition.Y + 2.5, treasurePosition.Z), Vector3.new(treasurePosition.X, treasurePosition.Y + 2.5, treasurePosition.Z) + mr.CFrame.LookVector)
                                 mr.CFrame = targetCFrame
                                 task.wait(0.3) -- Chờ nạp xong địa hình đảo mượt mà
@@ -510,7 +510,7 @@ tab3:CreateToggle({
                                     task.wait(0.04)
                                     pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
                                 end
-                                task.wait(0.5) -- Chờ hốt quà xong xuôi để vòng lặp quét tiếp la bàn mới
+                                task.wait(0.5) -- Chờ hốt quà xong xuôi để vòng lặp tiếp tục quét la bàn mới
                             end
                         end
                     end
@@ -519,6 +519,7 @@ tab3:CreateToggle({
         end
     end
 })
+
 
 
 
