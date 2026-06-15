@@ -1,35 +1,57 @@
+-- ====================================================================
+-- PHẦN 1: TỰ KHỞI TẠO GIAO DIỆN PHONG CÁCH TAB CAO CẤP + NÚT THU NHỎ VIP (FIX LED RGB)
+-- ====================================================================
 local MyLibrary = {}
+
 function MyLibrary:CreateWindow(titleText)
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "KyyuuunoproPremiumUI"
     pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
     if not ScreenGui.Parent then ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") end
+    
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 480, 0, 300)
     MainFrame.Position = UDim2.new(0.5, -240, 0.5, -150)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     MainFrame.BorderSizePixel = 0 MainFrame.Active = true MainFrame.Draggable = true MainFrame.Parent = ScreenGui
+    
     local UICorner = Instance.new("UICorner") UICorner.CornerRadius = UDim.new(0, 14) UICorner.Parent = MainFrame
-    local Title = Instance.new("TextLabel") Title.Size = UDim2.new(1, 0, 0, 45) Title.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+    
+    -- 🌟 ĐÃ SỬA: Xóa chữ "local" để vòng lặp LED RGB ở Phần 2 có thể điều khiển màu sắc
+    Title = Instance.new("TextLabel") 
+    Title.Size = UDim2.new(1, 0, 0, 45) Title.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
     Title.Text = "   " .. (titleText or "Menu Premium") Title.TextColor3 = Color3.fromRGB(255, 255, 255) Title.TextSize = 16
     Title.TextXAlignment = Enum.TextXAlignment.Left Title.Font = Enum.Font.SourceSansBold Title.Parent = MainFrame
+    
     local TitleCorner = Instance.new("UICorner") TitleCorner.CornerRadius = UDim.new(0, 14) TitleCorner.Parent = Title
+    
     local CloseMinButton = Instance.new("TextButton") CloseMinButton.Size = UDim2.new(0, 30, 0, 30) CloseMinButton.Position = UDim2.new(1, -38, 0, 7)
     CloseMinButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55) CloseMinButton.Text = "-" CloseMinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     CloseMinButton.TextSize = 20 CloseMinButton.Font = Enum.Font.SourceSansBold CloseMinButton.Parent = MainFrame
+    
     local MinCorner = Instance.new("UICorner") MinCorner.CornerRadius = UDim.new(0, 6) MinCorner.Parent = CloseMinButton
-    local OpenButton = Instance.new("TextButton") OpenButton.Size = UDim2.new(0, 50, 0, 50) OpenButton.Position = UDim2.new(0, 20, 1, -70)
+    
+    -- 🌟 ĐÃ SỬA: Xóa chữ "local" để nút bấm tròn mở menu cũng nhấp nháy đèn LED liên tục
+    OpenButton = Instance.new("TextButton") 
+    OpenButton.Size = UDim2.new(0, 50, 0, 50) OpenButton.Position = UDim2.new(0, 20, 1, -70)
     OpenButton.BackgroundColor3 = Color3.fromRGB(45, 120, 255) OpenButton.Text = "OPEN" OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     OpenButton.TextSize = 12 OpenButton.Font = Enum.Font.SourceSansBold OpenButton.Visible = false OpenButton.Parent = ScreenGui
+    
     local OpenCorner = Instance.new("UICorner") OpenCorner.CornerRadius = UDim.new(0, 25) OpenCorner.Parent = OpenButton
+    
     CloseMinButton.MouseButton1Click:Connect(function() MainFrame.Visible = false OpenButton.Visible = true end)
     OpenButton.MouseButton1Click:Connect(function() MainFrame.Visible = true OpenButton.Visible = false end)
+    
     local Sidebar = Instance.new("Frame") Sidebar.Size = UDim2.new(0, 130, 1, -45) Sidebar.Position = UDim2.new(0, 0, 0, 45)
     Sidebar.BackgroundColor3 = Color3.fromRGB(25, 25, 32) Sidebar.BorderSizePixel = 0 Sidebar.Parent = MainFrame
+    
     local SidebarLayout = Instance.new("UIListLayout") SidebarLayout.Padding = UDim.new(0, 5) SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center SidebarLayout.Parent = Sidebar
     local SidebarPadding = Instance.new("UIPadding") SidebarPadding.PaddingTop = UDim.new(0, 10) SidebarPadding.Parent = Sidebar
+    
     local ContentContainer = Instance.new("Frame") ContentContainer.Size = UDim2.new(1, -140, 1, -55) ContentContainer.Position = UDim2.new(0, 135, 0, 50) ContentContainer.BackgroundTransparency = 1 ContentContainer.Parent = MainFrame
+    
     local TabCount = 0 local Tabs = {} local LibraryMethods = {}
+    
     function LibraryMethods:CreateTab(tabName)
         TabCount = TabCount + 1
         local TabContent = Instance.new("ScrollingFrame") TabContent.Size = UDim2.new(1, 0, 1, 0) TabContent.BackgroundTransparency = 1 TabContent.CanvasSize = UDim2.new(0, 0, 0, 0) TabContent.ScrollBarThickness = 4 TabContent.Visible = (TabCount == 1) TabContent.Parent = ContentContainer
@@ -40,6 +62,7 @@ function MyLibrary:CreateWindow(titleText)
         TabButton.MouseButton1Click:Connect(function()
             for _, t in pairs(Tabs) do t.Content.Visible = (t.Button == TabButton) t.Button.BackgroundColor3 = (t.Button == TabButton) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(35, 35, 45) end
         end)
+        
         local TabMethods = {}
         function TabMethods:CreateToggle(config)
             local toggleName = config.Name or "Toggle" local callback = config.Callback or function() end local isToggled = config.CurrentValue or false
@@ -58,6 +81,7 @@ function MyLibrary:CreateWindow(titleText)
     end
     return LibraryMethods
 end
+
 local PlayersService = game:GetService("Players") local localPlayer = PlayersService.LocalPlayer local VirtualUser = game:GetService("VirtualUser")
 task.spawn(function() while true do task.wait(1) local character = localPlayer.Character if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then local playerGui = localPlayer:FindFirstChild("PlayerGui") if playerGui then for _, gui in pairs(playerGui:GetDescendants()) do if gui:IsA("TextButton") or gui:IsA("ImageButton") then local buttonText = string.lower(gui.Name) if gui:IsA("TextButton") then buttonText = buttonText .. string.lower(gui.Text) end if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or string.find(buttonText, "play") or string.find(buttonText, "sinh") or string.find(buttonText, "chơi") then if gui.Visible and gui.AbsoluteSize.X > 0 then pcall(function() gui:Activate() for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end end) end end end end end end end end)
 
