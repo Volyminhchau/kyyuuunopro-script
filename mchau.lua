@@ -118,7 +118,6 @@ local _G = _G or {}
 _G.AutoFarm = false
 
 local targetNPCs = {
-    "Bandit",
     "Thug",
     "Angry bob",
     "Angry Freddy",
