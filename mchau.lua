@@ -221,7 +221,7 @@ local function teleportToIsland(islandName)
             
             -- 🌟 PHÉP TOÁN GIỮA ĐẢO TRÊN CAO:
             -- Lấy tâm đảo và cộng thêm 80 studs theo trục Y (độ cao thẳng đứng)
-            local safeCFrame = islandCFrame * CFrame.new(0, 80, 0)
+            local safeCFrame = islandCFrame * CFrame.new(0, 150, 0)
             
             -- Thực hiện dịch chuyển an toàn
             myRoot.CFrame = safeCFrame
