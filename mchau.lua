@@ -5,22 +5,15 @@ local linkFile1 = "https://raw.githubusercontent.com/Volyminhchau/kyyuuunopro-sc
 local myLibrary = loadstring(game:HttpGet(linkFile1))()
 
 -- ====================================================================
--- 2. KHỞI TẠO CỬA SỔ MENU (Sửa đúng theo cấu trúc file main.lua của bạn)
+-- 2. KHỞI TẠO CỬA SỔ MENU (Sửa đúng theo hàm CreateWindow trong ảnh của bạn)
 -- ====================================================================
-local Window = myLibrary:CreateWindow({
-    Name = "Kyyuuunopro Private ⚔️",
-    LoadingTitle = "Đang cấu hình hệ thống...",
-    LoadingUser = "Chào mừng người dùng"
-})
-
--- Tạo Tab mới (Sửa lại cấu trúc truyền tham số chuẩn cho file main.lua)
-local FarmTab = Window:CreateTab("Auto Farm")
+local MainMenu = myLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
 -- Cấu hình hệ thống mặc định
 local _G = _G or {}
 _G.AutoFarm = false
 
--- Danh sách các NPC bạn muốn săn lùng trên toàn bộ map
+-- Danh sách chính xác các NPC bạn muốn farm trên toàn map
 local targetNPCs = {
     "Bandit",
     "Thug",
@@ -42,9 +35,9 @@ local function isTargetNPC(name)
 end
 
 -- ====================================================================
--- 3. TẠO NÚT BẬT/TẮT (Sửa đúng cấu trúc hàm CreateToggle của file main.lua)
+-- 3. TẠO NÚT BẬT/TẮT VÀ LOGIC AUTO FARM TRÊN TOÀN MAP
 -- ====================================================================
-FarmTab:CreateToggle({
+MainMenu:CreateToggle({
     Name = "Auto Farm Custom Mobs (Toàn Map)",
     CurrentValue = false,
     Callback = function(Value)
@@ -53,7 +46,7 @@ FarmTab:CreateToggle({
         if _G.AutoFarm then
             task.spawn(function()
                 while _G.AutoFarm do
-                    task.wait(0.05) -- Giới hạn vòng lặp tối ưu chống đứng game
+                    task.wait(0.05) -- Tốc độ vòng lặp quét tối ưu chống đứng game
                     
                     local player = game.Players.LocalPlayer
                     local character = player.Character
