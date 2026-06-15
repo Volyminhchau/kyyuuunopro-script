@@ -4,7 +4,7 @@
 local linkFile1 = "https://raw.githubusercontent.com/Volyminhchau/kyyuuunopro-script/refs/heads/main/main.lua" 
 local myLibrary = loadstring(game:HttpGet(linkFile1))()
 -- ====================================================================
--- 2. KHỞI TẠO CỬA SỔ MENU (Khớp cấu pháp MyLibrary:CreateWindow)
+-- 2. KHỞI TẠO CỬA SỔ MENU
 -- ====================================================================
 local MainMenu = myLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 
@@ -12,7 +12,7 @@ local MainMenu = myLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
 local _G = _G or {}
 _G.AutoFarm = false
 
--- Danh sách chính xác các NPC bạn muốn farm trên toàn map
+-- Danh sách quái vật yêu cầu
 local targetNPCs = {
     "Bandit",
     "Thug",
@@ -22,7 +22,7 @@ local targetNPCs = {
     "Gunslinger"
 }
 
--- Hàm kiểm tra thông minh xem tên quái có nằm trong danh sách yêu cầu không
+-- Hàm kiểm tra tên quái thông minh (không phân biệt chữ hoa/thường)
 local function isTargetNPC(name)
     local lowerName = string.lower(name)
     for _, target in pairs(targetNPCs) do
@@ -34,7 +34,7 @@ local function isTargetNPC(name)
 end
 
 -- ====================================================================
--- 3. TẠO NÚT BẬT/TẮT VÀ LOGIC AUTO FARM TRÊN TOÀN MAP
+-- 3. TẠO NÚT BẬT/TẮT VÀ LOGIC QUÉT QUÁI TOÀN DIỆN
 -- ====================================================================
 MainMenu:CreateToggle({
     Name = "Auto Farm Custom Mobs (Toàn Map)",
@@ -45,7 +45,7 @@ MainMenu:CreateToggle({
         if _G.AutoFarm then
             task.spawn(function()
                 while _G.AutoFarm do
-                    task.wait(0.05) -- Tốc độ vòng lặp quét tối ưu chống đứng game
+                    task.wait(0.05)
                     
                     local player = game.Players.LocalPlayer
                     local character = player.Character
@@ -56,32 +56,37 @@ MainMenu:CreateToggle({
                         if rootPart and humanoid and humanoid.Health > 0 then
                             local targetNPC = nil
                             
-                            -- Quét không giới hạn khoảng cách trên toàn bộ Workspace
-                            for _, obj in pairs(workspace:GetDescendants()) do
+                            -- 🌟 CẢI TIẾN: Quét sâu vào toàn bộ game (cả Workspace và các thư mục lưu trữ ẩn)
+                            local scanObjects = {}
+                            for _, v in pairs(workspace:GetDescendants()) do table.insert(scanObjects, v) end
+                            for _, v in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do table.insert(scanObjects, v) end
+                            
+                            for _, obj in pairs(scanObjects) do
                                 if isTargetNPC(obj.Name) and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
-                                    if obj:FindFirstChild("HumanoidRootPart") then
+                                    -- Đảm bảo quái phải có bộ phận gốc để dịch chuyển tới
+                                    if obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Head") then
                                         targetNPC = obj
-                                        break -- Tóm ngay con đầu tiên tìm thấy trên bản đồ
+                                        break
                                     end
                                 end
                             end
                             
-                            -- Tiến hành áp sát từ sau lưng và xả sát thương
+                            -- HÀNH ĐỘNG DỊCH CHUYỂN VÀ GIẢ LẬP ĐÁNH
                             if targetNPC then
-                                local npcRoot = targetNPC.HumanoidRootPart
+                                -- Ưu tiên dùng HumanoidRootPart, nếu không có thì lấy phần Đầu (Head) của quái
+                                local npcPart = targetNPC:FindFirstChild("HumanoidRootPart") or targetNPC:FindFirstChild("Head")
                                 
-                                -- Dịch chuyển ra sau lưng cách quái 2.5 studs và xoay mặt vào quái
-                                rootPart.CFrame = npcRoot.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
-                                
-                                -- Tự động kích hoạt công cụ vũ khí trên tay
-                                local tool = character:FindFirstChildOfClass("Tool")
-                                if tool then 
-                                    tool:Activate() 
-                                else
-                                    -- Nếu chưa cầm sẵn vũ khí, tự động móc từ balo (Backpack) ra trang bị
-                                    local backpackTool = player.Backpack:FindFirstChildOfClass("Tool")
-                                    if backpackTool then 
-                                        backpackTool.Parent = character 
+                                if npcPart then
+                                    -- Dịch chuyển ra sau lưng quái
+                                    rootPart.CFrame = npcPart.CFrame * CFrame.new(0, 0, 2.5) * CFrame.Angles(0, math.rad(180), 0)
+                                    
+                                    -- Tự động vung vũ khí trên tay
+                                    local tool = character:FindFirstChildOfClass("Tool")
+                                    if tool then 
+                                        tool:Activate() 
+                                    else
+                                        local backpackTool = player.Backpack:FindFirstChildOfClass("Tool")
+                                        if backpackTool then backpackTool.Parent = character end
                                     end
                                 end
                             end
