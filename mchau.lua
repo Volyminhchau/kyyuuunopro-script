@@ -473,6 +473,140 @@ tab3:CreateToggle({
         end
     end
 })
+-- 🌟 NÚT 2: [BẢN FIX CHỐNG TRỄ MẠNG] TP CHUỖI 2 ĐẦU KIM - KHÓA TỌA ĐỘ CỨNG VĨNH VIỄN - CHỐNG LẶP TUYỆT ĐỐI
+tab3:CreateToggle({
+    Name = "Dịch chuyển tức thời theo la bàn",
+    CurrentValue = false,
+    Callback = function(v)
+        _G.AutoFlyToCompassDirection = v
+        local pObj = game:GetService("Players").LocalPlayer
+        
+        if _G.AutoFlyToCompassDirection then
+            task.spawn(function()
+                -- Bước 1: Thu thập toàn bộ linh kiện Spawner từ MapFolder.Trees
+                local allTreeSpawns = {}
+                local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
+                if treesFolder then
+                    for _, child in pairs(treesFolder:GetChildren()) do
+                        local spawner = child:FindFirstChild("Spawner")
+                        if spawner then table.insert(allTreeSpawns, spawner) end
+                    end
+                end
+                
+                -- Tạo tấm đệm tàng hình lót chân chống rơi nước biển
+                local safetyPlatform = Instance.new("Part", workspace)
+                safetyPlatform.Size = Vector3.new(6, 1, 6)
+                safetyPlatform.Transparency = 1
+                safetyPlatform.Anchored = true
+                safetyPlatform.CanCollide = true
+                
+                -- 🔥 DANH SÁCH ĐEN KHÓA THEO TỌA ĐỘ VỊ TRÍ ĐỊA LÝ VĨNH VIỄN TRONG CHU KỲ
+                local blacklistedPositions = {}
+                
+                while _G.AutoFlyToCompassDirection do
+                    -- 🔥 TĂNG DELAY ĐỒNG BỘ: Chờ 0.55 giây để đảm bảo Server nạp kịp Danh Sách Đen và kim la bàn kịp đổi hướng
+                    task.wait(0.55) 
+                    
+                    local char = pObj.Character
+                    local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+                    
+                    if hum and hum.Health > 0 and rootPart then
+                        safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
+                        
+                        -- Kiểm tra vật phẩm la bàn trong balo hoặc trên tay của bạn
+                        local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
+                        
+                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Khi không còn la bàn nào trong người -> Tự tắt và xóa bộ nhớ
+                        if not hc then
+                            print("🔄 Đã cạn kiệt la bàn hoặc nhận được Box DF! Tiến hành dọn dẹp bộ nhớ.")
+                            blacklistedPositions = {} 
+                            _G.AutoFlyToCompassDirection = false
+                            if tab3.SetToggle then tab3:SetToggle(false) end
+                            break
+                        end
+                        
+                        -- Tự động cầm công cụ và kích hoạt chạy ngầm nội bộ
+                        if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.15) end
+                        if hc.Parent == char then hc:Activate() end
+                        
+                        -- Định vị linh kiện kim la bàn trong Workspace
+                        local needle = nil
+                        for _, item in pairs(workspace:GetDescendants()) do
+                            if item.Name == "CompassNeedle" and item:IsA("BasePart") then needle = item break end
+                        end
+                        
+                        if needle then
+                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin đồng bộ hướng mới liên tục
+                            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
+                            
+                            -- Lấy trục RightVector phẳng của kim làm đường thẳng dẫn hướng
+                            local needleDirection = needle.CFrame.RightVector
+                            local moveDirection = Vector3.new(needleDirection.X, 0, needleDirection.Z).Unit
+                            
+                            local bestNextSpawn = nil
+                            local maxDistance = 0
+                            
+                            -- Quét tìm cây Spawner nằm trên trục đường thẳng của kim chỉ
+                            for _, spawner in pairs(allTreeSpawns) do
+                                if spawner and spawner.Parent then
+                                    local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
+                                    
+                                    -- 🔥 MÃ HÓA TỌA ĐỘ KHỬ RUNG SAI: Chia cho 10 để khóa toàn bộ vùng bán kính 10 block xung quanh cây
+                                    local posX = math.floor(spawnPos.X / 10)
+                                    local posY = math.floor(spawnPos.Y / 10)
+                                    local posZ = math.floor(spawnPos.Z / 10)
+                                    local posKey = posX .. "," .. posY .. "," .. posZ
+                                    
+                                    -- ĐIỀU KIỆN KHÓA CHẶT TUYỆT ĐỐI: Chỉ duyệt các tọa độ địa lý CHƯA từng được đi qua
+                                    if not blacklistedPositions[posKey] then
+                                        local vectorToSpawn = (spawnPos - rootPart.Position)
+                                        local dist = vectorToSpawn.Magnitude
+                                        
+                                        -- 🔥 TĂNG KHOẢNG CÁCH TỐI THIỂU (dist > 150 block) để triệt tiêu hoàn toàn việc quét trúng đảo cũ do trễ mạng
+                                        if dist > 150 and dist < 35000 then
+                                            local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
+                                            local alignment = math.abs(moveDirection:Dot(dirToSpawn))
+                                            
+                                            -- Nếu cây nằm thẳng hàng trên trục kim la bàn chỉ (Góc lệch cực nhỏ > 0.90)
+                                            if alignment > 0.90 and dist > maxDistance then
+                                                maxDistance = dist
+                                                bestNextSpawn = spawner
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            -- THỰC HIỆN TELEPORT SIÊU TỐC VÀ KHÓA CHẾT TOẠ ĐỘ VỪA NHẢY
+                            if bestNextSpawn then
+                                local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
+                                
+                                -- 🔥 ĐƯA TỌA ĐỘ VÀO DANH SÁCH ĐEN KHÓA CHẾT VĨNH VIỄN ĐẾN KHI HẾT COMPASS
+                                local targetX = math.floor(targetPos.X / 10)
+                                local targetY = math.floor(targetPos.Y / 10)
+                                local targetZ = math.floor(targetPos.Z / 10)
+                                local targetKey = targetX .. "," .. targetY .. "," .. targetZ
+                                blacklistedPositions[targetKey] = true 
+                                
+                                print("⚡ ĐỒNG BỘ MẠNG THÀNH CÔNG -> Đã khóa vĩnh viễn vị trí: [" .. targetKey .. "]")
+                                
+                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner mục tiêu
+                                safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
+                                rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
+                            else
+                                -- Nếu tất cả các cây dọc đường ngắm đều đã đi qua, tự xả bảng đen để tránh đơ mạng lơ lửng
+                                blacklistedPositions = {}
+                                rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
+                            end
+                        end
+                    end
+                end
+                if safetyPlatform then safetyPlatform:Destroy() end
+            end)
+        end
+    end
+})
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - TỐI ƯU GIẢM LAG + CLICK MINIGAME
