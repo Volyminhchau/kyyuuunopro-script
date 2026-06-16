@@ -579,21 +579,6 @@ tab3:CreateToggle({
     end
 })
 
-            -- Giải phóng hoàn toàn nhân vật và dọn dẹp thuộc tính bay khi người chơi TẮT nút
-            pcall(function()
-                local char = pObj.Character
-                local mr = char and char:FindFirstChild("HumanoidRootPart")
-                if mr then
-                    mr.Anchored = false
-                    if mr:FindFirstChild("CompassVelocity") then
-                        mr.CompassVelocity:Destroy()
-                    end
-                end
-            end)
-        end
-    end
-})
-
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
 -- ====================================================================
