@@ -434,10 +434,10 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN TELEPORT ĐẾN CÂY NHẬN BOX DF
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - ĐỒNG BỘ GIAO DIỆN UI KHÔNG LỖI
 -- ====================================================================
 
--- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Giữ nguyên bản gốc của bạn)
+-- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -473,48 +473,8 @@ tab3:CreateToggle({
         end
     end
 })
--- [HÀM KHÓA CỨNG HƯỚNG MŨI ĐỎ & CHỐNG LẶP CÂY] - ĐẶT Ở ĐẦU SCRIPT
-local function getCorrectCompassDirection(needle, spawners, rootPos, blacklistedTreeNames)
-    if not needle or not needle:IsA("BasePart") then return nil, 0 end
-    
-    -- TRỤC CHUẨN CỦA MŨI KIM ĐỎ TRÊN LA BÀN TRÒN: 
-    -- Sử dụng RightVector nghịch đảo (hoặc LookVector tùy chỉnh góc phẳng) để ép bay theo đầu đỏ, bỏ qua đuôi trắng
-    local compassDirection = -needle.CFrame.RightVector
-    local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
-    
-    local bestSpawn = nil
-    local maxDistance = 0
-    local minAngle = 0.92 -- Khóa góc thẳng hàng cực hẹp, ép đi theo đường thẳng của mũi kim đỏ chỉ
-    
-    for _, spawner in pairs(spawners) do
-        if spawner and spawner.Parent then
-            -- Sử dụng Tên hiển thị/Đường dẫn của Cây làm mã khóa danh sách đen thay vì tọa độ
-            local treeNameKey = spawner.Parent:GetFullName()
-            
-            -- ĐIỀU KIỆN KHÓA CHẶT: Nếu cây này CHƯA từng được đi qua thì mới xử lý
-            if not blacklistedTreeNames[treeNameKey] then
-                local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
-                local vectorToSpawn = (spawnPos - rootPos)
-                local dist = vectorToSpawn.Magnitude
-                
-                -- Chỉ quét các Spawner ở khoảng cách phía trước mặt từ 50m đến 35,000m
-                if dist > 50 and dist < 35000 then
-                    local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
-                    local dotProduct = moveDirection:Dot(dirToSpawn)
-                    
-                    -- Tìm cái cây nằm ở tầm xa nhất dọc theo đường thẳng hướng mũi kim đỏ đang phóng ra
-                    if dotProduct > minAngle and dist > maxDistance then
-                        maxDistance = dist
-                        bestSpawn = spawner
-                    end
-                end
-            end
-        end
-    end
-    
-    return bestSpawn, maxDistance
-end
--- 🌟 NÚT 2: [BẢN GỘP KHÔNG LỖI EXECUTOR] KHÓA MŨI KIM ĐỎ - MỖI CÂY TP ĐÚNG 1 LẦN - CHẠY NGẦM BALO
+
+-- 🌟 NÚT 2: DỊCH CHUYỂN THEO KIM ĐỎ (Bản gộp khóa cây vĩnh viễn - Ép theo kim đỏ - Trả tự do chuột)
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -524,7 +484,7 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Bước 1: Quét lưu sẵn danh sách toàn bộ Spawner từ thư mục chính xác của game
+                -- Bước 1: Quét lưu sẵn danh sách toàn bộ Spawner từ thư mục Trees chính xác của game
                 local allTreeSpawns = {}
                 local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
                 if treesFolder then
@@ -541,7 +501,7 @@ tab3:CreateToggle({
                 safetyPlatform.Anchored = true
                 safetyPlatform.CanCollide = true
                 
-                -- 🔥 DANH SÁCH ĐEN KHÓA CỨNG THEO TÊN CÂY VĨNH VIỄN TRONG CHU KỲ LA BÀN
+                -- DANH SÁCH ĐEN KHÓA CỨNG THEO TÊN CÂY VĨNH VIỄN TRONG CHU KỲ LA BÀN
                 local blacklistedTreeNames = {}
                 local currentCompassInstance = nil
                 
@@ -562,11 +522,11 @@ tab3:CreateToggle({
                             break
                         end
                         
-                        -- Tự động cầm công cụ lên tay và kích hoạt ngầm
+                        -- Tự động cầm công cụ lên tay và kích hoạt chạy ngầm nội bộ
                         if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.1) end
                         if hc.Parent == char then hc:Activate() end
                         
-                        -- 🔥 CƠ CHẾ RESET DANH SÁCH ĐEN: Chỉ xóa bộ nhớ khi la bàn trên tay biến mất/đổi mới
+                        -- CƠ CHẾ RESET DANH SÁCH ĐEN: Chỉ xóa bộ nhớ khi la bàn trên tay biến mất/đổi mới
                         if currentCompassInstance ~= hc then
                             if currentCompassInstance ~= nil then 
                                 print("🔄 La bàn cũ đã mất! Tiến hành Reset sạch danh sách cây đã đi qua.")
@@ -644,10 +604,6 @@ tab3:CreateToggle({
         end
     end
 })
-
-
-
-
 
 
 
