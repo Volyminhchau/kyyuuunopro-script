@@ -473,59 +473,50 @@ tab3:CreateToggle({
         end
     end
 })
--- [HÀM TOÁN HỌC KHỬ LỆCH TRỤC KIM LA BÀN] - ĐẶT Ở ĐẦU SCRIPT
-local function getCorrectCompassDirection(needle, spawners, rootPos, blacklisted)
+-- [HÀM KHÓA CỨNG HƯỚNG MŨI ĐỎ & CHỐNG LẶP CÂY] - ĐẶT Ở ĐẦU SCRIPT
+local function getCorrectCompassDirection(needle, spawners, rootPos, blacklistedTreeNames)
     if not needle or not needle:IsA("BasePart") then return nil, 0 end
     
-    -- Quét toàn bộ 6 hướng không gian có thể xảy ra của khối kim đỏ
-    local potentialDirs = {
-        needle.CFrame.LookVector,   -- Trục trước
-        -needle.CFrame.LookVector,  -- Trục sau
-        needle.CFrame.RightVector,  -- Trục phải
-        -needle.CFrame.RightVector, -- Trục trái
-        needle.CFrame.UpVector,     -- Trục trên
-        -needle.CFrame.UpVector     -- Trục dưới
-    }
+    -- TRỤC CHUẨN CỦA MŨI KIM ĐỎ TRÊN LA BÀN TRÒN: 
+    -- Sử dụng RightVector nghịch đảo (hoặc LookVector tùy chỉnh góc phẳng) để ép bay theo đầu đỏ, bỏ qua đuôi trắng
+    local compassDirection = -needle.CFrame.RightVector
+    local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
     
     local bestSpawn = nil
     local maxDistance = 0
-    local minAngle = 0.90 -- Khóa góc thẳng hàng cực hẹp chống bay lệch hướng
+    local minAngle = 0.92 -- Khóa góc thẳng hàng cực hẹp, ép đi theo đường thẳng của mũi kim đỏ chỉ
     
-    -- Duyệt tìm tia hướng nào khớp hoàn hảo với chuỗi cây Spawner phía trước mặt
-    for _, rawDir in pairs(potentialDirs) do
-        local moveDir = Vector3.new(rawDir.X, 0, rawDir.Z).Unit
-        
-        for _, spawner in pairs(spawners) do
-            if spawner and spawner.Parent then
+    for _, spawner in pairs(spawners) do
+        if spawner and spawner.Parent then
+            -- Sử dụng Tên hiển thị/Đường dẫn của Cây làm mã khóa danh sách đen thay vì tọa độ
+            local treeNameKey = spawner.Parent:GetFullName()
+            
+            -- ĐIỀU KIỆN KHÓA CHẶT: Nếu cây này CHƯA từng được đi qua thì mới xử lý
+            if not blacklistedTreeNames[treeNameKey] then
                 local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
-                local posKey = math.floor(spawnPos.X) .. "," .. math.floor(spawnPos.Y) .. "," .. math.floor(spawnPos.Z)
+                local vectorToSpawn = (spawnPos - rootPos)
+                local dist = vectorToSpawn.Magnitude
                 
-                -- Điều kiện lọc: Spawner chưa nằm trong danh sách đen khóa vĩnh viễn
-                if not blacklisted[posKey] then
-                    local vectorToSpawn = (spawnPos - rootPos)
-                    local dist = vectorToSpawn.Magnitude
+                -- Chỉ quét các Spawner ở khoảng cách phía trước mặt từ 50m đến 35,000m
+                if dist > 50 and dist < 35000 then
+                    local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
+                    local dotProduct = moveDirection:Dot(dirToSpawn)
                     
-                    if dist > 50 and dist < 35000 then
-                        local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
-                        local dotProduct = moveDir:Dot(dirToSpawn)
-                        
-                        -- Nếu tìm thấy tia trùng khớp với cây ở khoảng cách xa nhất dọc đường kim chỉ
-                        if dotProduct > minAngle and dist > maxDistance then
-                            maxDistance = dist
-                            bestSpawn = spawner
-                        end
+                    -- Tìm cái cây nằm ở tầm xa nhất dọc theo đường thẳng hướng mũi kim đỏ đang phóng ra
+                    if dotProduct > minAngle and dist > maxDistance then
+                        maxDistance = dist
+                        bestSpawn = spawner
                     end
                 end
             end
         end
-        -- Nếu tia hướng này đã tìm được mục tiêu chuẩn xác, ngắt bộ quét để tối ưu hiệu năng
-        if bestSpawn then break end
     end
     
     return bestSpawn, maxDistance
 end
 
--- 🌟 NÚT 2: [BẢN TÁCH RỜI SIÊU GỌN CHẸT MẠNG] - CHẠY NGẦM BALO KHÔNG CHẠM CHUỘT
+
+-- 🌟 NÚT 2: [BẢN KHÓA CÂY VĨNH VIỄN - ÉP THEO KIM ĐỎ] - TP SIÊU TỐC BALO KHÔNG CHẠM CHUỘT
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -535,28 +526,29 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Gom toàn bộ Spawner từ MapFolder.Trees
+                -- Bước 1: Thu thập toàn bộ linh kiện Spawner từ workspace.MapFolder.Trees [1]
                 local allTreeSpawns = {}
-                local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
+                local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees") [1]
                 if treesFolder then
-                    for _, child in pairs(treesFolder:GetChildren()) do
-                        local spawner = child:FindFirstChild("Spawner")
+                    for _, child in pairs(treesFolder:GetChildren()) do [1]
+                        local spawner = child:FindFirstChild("Spawner") [1]
                         if spawner then table.insert(allTreeSpawns, spawner) end
                     end
                 end
                 
-                -- Tạo tấm đệm tàng hình lót chân chống rơi nước
+                -- Tạo tấm đệm tàng hình lót chân chống rơi xuống nước biển
                 local safetyPlatform = Instance.new("Part", workspace)
                 safetyPlatform.Size = Vector3.new(6, 1, 6)
                 safetyPlatform.Transparency = 1
                 safetyPlatform.Anchored = true
                 safetyPlatform.CanCollide = true
                 
-                local blacklistedPositions = {}
+                -- 🔥 DANH SÁCH ĐEN THEO TÊN CÂY: Khóa vĩnh viễn cây cũ không cho quay lại [1]
+                local blacklistedTreeNames = {}
                 local currentCompassInstance = nil
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.2)
+                    task.wait(0.2) -- Tốc độ nhịp nhảy siêu tốc tiến về phía trước
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
@@ -564,7 +556,7 @@ tab3:CreateToggle({
                     if hum and hum.Health > 0 and rootPart then
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- Quét kiểm tra la bàn trong balo/trên tay
+                        -- Kiểm tra vật phẩm la bàn trong balo/trên tay
                         local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
                         if not hc then
                             _G.AutoFlyToCompassDirection = false
@@ -576,37 +568,42 @@ tab3:CreateToggle({
                         if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.1) end
                         if hc.Parent == char then hc:Activate() end
                         
-                        -- Reset danh sách đen vĩnh viễn khi la bàn hiện tại biến mất/đổi mới
+                        -- 🔥 CƠ CHẾ RESET DANH SÁCH ĐEN: Chỉ xóa bộ nhớ khi la bàn cũ mất đi để đổi Box
                         if currentCompassInstance ~= hc then
-                            if currentCompassInstance ~= nil then blacklistedPositions = {} end
+                            if currentCompassInstance ~= nil then 
+                                print("🔄 La bàn cũ đã mất! Tiến hành Reset sạch bộ nhớ cây đã đi qua.")
+                                blacklistedTreeNames = {} 
+                            end
                             currentCompassInstance = hc
                         end
                         
-                        -- Tìm kiếm linh kiện kim la bàn trong Workspace
+                        -- Định vị linh kiện kim la bàn trong Workspace
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
                             if item.Name == "CompassNeedle" and item:IsA("BasePart") then needle = item break end
                         end
                         
                         if needle then
-                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin mạng hướng đi mới
+                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin đồng bộ hướng mới liên tục
                             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             
-                            -- Gọi hàm định hướng tự động đã khai báo ở Phần 1
-                            local bestNextSpawn, furthestDistance = getCorrectCompassDirection(needle, allTreeSpawns, rootPart.Position, blacklistedPositions)
+                            -- Gọi hàm định hướng đầu đỏ độc quyền từ Phần 1
+                            local bestNextSpawn, furthestDistance = getCorrectCompassDirection(needle, allTreeSpawns, rootPart.Position, blacklistedTreeNames)
                             
                             -- Thực hiện dịch chuyển tức thời (Snap Teleport)
                             if bestNextSpawn then
+                                -- Đưa tên cây này vào danh sách đen khóa cứng vĩnh viễn [1]
+                                local treeNameKey = bestNextSpawn.Parent:GetFullName()
+                                blacklistedTreeNames[treeNameKey] = true
+                                
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
-                                local targetKey = math.floor(targetPos.X) .. "," .. math.floor(targetPos.Y) .. "," .. math.floor(targetPos.Z)
+                                print("⚡ TP SIÊU TỐC KHÓA CÂY -> Điểm Spawner: " .. bestNextSpawn.Parent.Name .. " (Cách: " .. math.floor(furthestDistance) .. "m)")
                                 
-                                -- Khóa vĩnh viễn tọa độ này trong chu kỳ la bàn hiện tại
-                                blacklistedPositions[targetKey] = true
-                                print("⚡ ĐÃ FIX NGƯỢC HƯỚNG -> TP tới cây cách: " .. math.floor(furthestDistance) .. "m")
-                                
+                                -- Đồng bộ đưa tấm đệm và nhân vật dẫm thẳng vào tâm Spawner mục tiêu
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             else
+                                -- Nếu kim đang xoay dở chưa tìm thấy cây mới, nhấp nhô nhẹ để giữ kết nối mạng
                                 rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         end
