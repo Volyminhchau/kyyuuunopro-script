@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN KHÓA CỨNG ĐIỀU KIỆN] MỖI BƯỚC TP BẮT BUỘC PHẢI NHẢY LÊN CÂY THEO HƯỚNG KIM ĐỎ
+-- 🌟 NÚT 2: [BẢN SIÊU TỐC VÔ HẠN] KHÓA ĐỨNG IM CHỐNG RƠI NƯỚC - TP THẲNG ĐẾN CÂY THEO KIM ĐỎ XUYÊN ĐẢO
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -485,106 +485,108 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Mẹo nhỏ: Lưu lại gốc cây vừa nhảy qua để tránh nhân vật bị nhảy lặp đi lặp lại một cây
+                -- Lưu danh sách cây để tối ưu hiệu năng, tránh quét lại từ đầu gây lag sai hướng
+                local allTrees = {}
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("Model") and string.find(string.lower(obj.Name), "tree") then
+                        local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChild("Handle")
+                        if part then
+                            table.insert(allTrees, part)
+                        end
+                    end
+                end
+                
                 local lastVisitedTree = nil
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.4) -- Giữ nhịp delay an toàn để server kịp cập nhật hướng kim mới
+                    task.wait(0.5) -- Nhịp delay an toàn để Server đồng bộ hướng kim la bàn
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if hum and hum.Health > 0 and rootPart then
-                        -- 1. Tìm và tự động trang bị La bàn
-                        local hc = char:FindFirstChild("Compass") or pObj.Backpack:FindFirstChild("Compass")
+                        -- KHÓA CỨNG NHÂN VẬT NGAY LẬP TỨC: Chống rơi tự do, chống rớt xuống nước biển
+                        rootPart.Anchored = true
                         
+                        -- Tìm và tự động cầm La bàn
+                        local hc = char:FindFirstChild("Compass") or pObj.Backpack:FindFirstChild("Compass")
                         if hc then
                             if hc.Parent == pObj.Backpack then
                                 hum:EquipTool(hc)
                                 task.wait(0.2)
                             end
                             
-                            hc:Activate() -- Kích hoạt la bàn liên tục
+                            hc:Activate() -- Kích hoạt la bàn
                             
                             local needle = hc:FindFirstChild("CompassNeedle")
                             if needle and needle:IsA("BasePart") then
                                 
-                                -- 2. ĐỌC HƯỚNG XOAY NGANG TRỤC Y THỰC TẾ CỦA KIM ĐỎ
+                                -- ĐỌC HƯỚNG XOAY CHUẨN CỦA KIM ĐỎ
                                 local _, yOrientation, _ = needle.CFrame:ToOrientation()
                                 local compassDirection = Vector3.new(math.sin(yOrientation), 0, math.cos(yOrientation)).Unit
                                 
-                                -- 3. QUÈT TÌM GỐC CÂY HỢP LỆ THEO HƯỚNG KIM CHỈ
                                 local bestNextTree = nil
-                                local bestScore = -1 -- Điểm số đánh giá độ chuẩn hướng của cây
-                                local maxSearchRadius = 1500 -- Tầm quét cây xung quanh (1500 block)
+                                local minAngle = 0.98 -- Khóa góc cực hẹp (Gần như thẳng hàng tuyệt đối với kim đỏ chỉ)
+                                local closestDistance = 999999 -- Hỗ trợ tìm cây ở mọi khoảng cách siêu xa
                                 
-                                for _, obj in pairs(workspace:GetDescendants()) do
-                                    if obj:IsA("Model") and string.find(string.lower(obj.Name), "tree") then
-                                        local treePart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChild("Handle")
+                                -- DUYỆT DANH SÁCH CÂY TRÊN TOÀN BẢN ĐỒ VỚI TẦM QUÈT VÔ HẠN
+                                for _, treePart in pairs(allTrees) do
+                                    if treePart and treePart.Parent and treePart ~= lastVisitedTree then
+                                        local vectorToTree = (treePart.Position - rootPart.Position)
+                                        local distance = vectorToTree.Magnitude
                                         
-                                        -- Điều kiện: Cây phải có khối gốc tọa độ và không phải là cây vừa mới đứng xong
-                                        if treePart and treePart ~= lastVisitedTree then
-                                            local vectorToTree = (treePart.Position - rootPart.Position)
-                                            local distance = vectorToTree.Magnitude
+                                        if distance > 30 then -- Bỏ qua cây đang đứng
+                                            local directionToTree = vectorToTree.Unit
+                                            local dotProduct = compassDirection:Dot(directionToTree)
                                             
-                                            -- Chỉ xét các cây ở khoảng cách hợp lý (không quá gần, không quá xa)
-                                            if distance > 20 and distance < maxSearchRadius then
-                                                -- Thuật toán Dot Product: Kiểm tra xem cây này có nằm đúng hướng kim chỉ không
-                                                local directionToTree = vectorToTree.Unit
-                                                local dotProduct = compassDirection:Dot(directionToTree)
-                                                
-                                                -- dotProduct càng gần 1 tức là cây đó càng nằm thẳng hàng với hướng kim đỏ đang chỉ
-                                                if dotProduct > 0.75 then -- Chỉ chọn các cây nằm trong góc lệch nhỏ hơn 45 độ so với kim
-                                                    -- Ưu tiên cây nào thẳng hướng nhất và xa nhất trong tầm nhảy để tối ưu tốc độ
-                                                    local score = dotProduct * 1000 + distance
-                                                    if score > bestScore then
-                                                        bestScore = score
-                                                        bestNextTree = treePart
-                                                    end
+                                            -- Nếu cây này nằm đúng trong đường thẳng tia ngắm của kim đỏ phóng ra
+                                            if dotProduct > minAngle then
+                                                -- Ưu tiên cây gần nhất dọc theo hướng kim chỉ để nhảy tịnh tiến an toàn
+                                                if distance < closestDistance then
+                                                    closestDistance = distance
+                                                    bestNextTree = treePart
                                                 end
                                             end
                                         end
                                     end
                                 end
                                 
-                                -- 4. TIẾN HÀNH TP THẲNG VÀO CÂY ĐÃ CHỌN
+                                -- THỰC HIỆN TELEPORT SIÊU TỐC VÀ KHÓA CỨNG
                                 if bestNextTree then
-                                    lastVisitedTree = bestNextTree -- Ghi nhớ cây này để không nhảy ngược lại
+                                    lastVisitedTree = bestNextTree
+                                    print("🌳 Đang khóa mục tiêu và TP thẳng đến cây xuyên đảo: " .. bestNextTree.Parent.Name)
                                     
-                                    print("🌳 Đang dịch chuyển bước tiếp theo lên cây: " .. bestNextTree.Parent.Name)
-                                    rootPart.Anchored = true
+                                    -- TP thẳng lên ngọn cây (Cao hơn gốc 5 block) để tránh bị kẹt vào cành lá hay địa hình
+                                    rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(0, 5, 0))
+                                    task.wait(0.15)
                                     
-                                    -- Đưa nhân vật đáp thẳng lên ngọn/gốc cây (bù thêm chiều cao an toàn)
-                                    rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(0, 4, 0))
-                                    task.wait(0.1)
-                                    
-                                    -- Khi nhảy lên cây, chạy nhẹ 1 vòng tròn hitbox siêu nhỏ để kích hoạt nếu đây lỡ là cây đích của Quest
+                                    -- Quét hitbox vòng tròn nhỏ quanh thân cây để kích hoạt vùng nhận Box của SamQuest
                                     for i = 1, 4 do
-                                        local angle = (i / 4) * math.pi * 2
-                                        rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(math.cos(angle) * 2, 3, math.sin(angle) * 2))
-                                        task.wait(0.04)
+                                        rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(math.cos((i/4)*math.pi*2)*2, 2, math.sin((i/4)*math.pi*2)*2))
+                                        task.wait(0.05)
                                     end
                                     
-                                    rootPart.Anchored = false
+                                    -- Tiếp tục giữ trạng thái khóa cứng để chuẩn bị cho bước nhảy tiếp theo
+                                    rootPart.Anchored = true
                                 else
-                                    print("🔍 Chưa quét thấy cây nào thẳng hướng kim đỏ ở hòn đảo phía trước, đang đứng im chờ kim xoay...")
+                                    print("🔍 Kim đỏ đang xoay/chỉ hướng khác, đang đóng băng nhân vật chờ quét tuyến cây tiếp theo...")
                                 end
                             else
                                 print("⚠️ Không tìm thấy CompassNeedle!")
                             end
                             
-                            -- 5. ĐIỀU KIỆN KIỂM TRA ĐÍCH (NHẬN BOX THÀNH CÔNG)
+                            -- ĐIỀU KIỆN HOÀN THÀNH: Nếu la bàn biến mất tức là đã đổi thành Box DF thành công
                             if not char:FindFirstChild("Compass") and not pObj.Backpack:FindFirstChild("Compass") then
-                                print("🎉 Thành công rực rỡ! Đã nhảy trúng cây mục tiêu và nhận được Box DF.")
+                                print("🎉 Quá tuyệt vời! Đã đến cây đích và nhận được Box DF.")
+                                rootPart.Anchored = false -- Mở khóa nhân vật để bạn đi nhặt hoặc mở Box
                                 _G.AutoFlyToCompassDirection = false
-                                if tab3.SetToggle then 
-                                    tab3:SetToggle(false) -- Tự động tắt nút gạt UI
-                                end
+                                if tab3.SetToggle then tab3:SetToggle(false) end
                                 break
                             end
                         else
-                            print("❌ Không tìm thấy vật phẩm 'Compass' trong người!")
+                            print("❌ Không tìm thấy vật phẩm 'Compass'!")
+                            rootPart.Anchored = false -- Giải phóng nhân vật nếu không có la bàn
                         end
                     end
                 end
@@ -592,6 +594,7 @@ tab3:CreateToggle({
         end
     end
 })
+
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
