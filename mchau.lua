@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN KHÓA ĐÚNG HƯỚNG KIM] TP QUA ĐIỂM CON THỨ 5 THEO GÓC XOAY THỰC CỦA KIM ĐỎ
+-- 🌟 NÚT 2: [BẢN KHÓA CỨNG DANH SÁCH ĐEN] TP QUA ĐIỂM CON THỨ 5 - RESET KHI MẤT COMPASS TRÊN TAY
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -511,10 +511,13 @@ tab3:CreateToggle({
                 safetyPlatform.CanCollide = true
                 safetyPlatform.Name = "SafetyTPPlatform"
                 
+                -- 🔥 BẢNG DANH SÁCH ĐEN KHÓA CỨNG (Không tự động xóa theo thời gian nữa)
                 local blacklistedSpawns = {}
+                -- Biến ghi nhớ trạng thái chiếc la bàn đang cầm trên tay để phát hiện lúc nó mất đi
+                local currentCompassInstance = nil
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.25) -- Giữ nhịp độ để la bàn đồng bộ hướng mượt mà
+                    task.wait(0.2) -- Nhịp delay mượt mà để đồng bộ hướng kim
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -524,24 +527,38 @@ tab3:CreateToggle({
                         safetyPlatform.Parent = workspace
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- KIỂM TRA VÀ CẦM LA BÀN TRONG BALO
+                        -- KIỂM TRA KIỂM ĐỊNH COMPASS TRÊN TAY HOẶC TRONG BALO
                         local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
                         
+                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Nếu kiểm tra toàn diện không còn la bàn nào nữa thì dừng hẳn
                         if not hc then
-                            print("🎉 Đã hết la bàn trong balo! Dừng dịch chuyển.")
+                            print("🎉 Đã hết toàn bộ la bàn trong người! Tự động dừng TP.")
                             if safetyPlatform then safetyPlatform:Destroy() end
                             _G.AutoFlyToCompassDirection = false
                             if tab3.SetToggle then tab3:SetToggle(false) end 
                             break
                         end
                         
+                        -- Tự động cầm la bàn lên tay nếu nó đang ở trong balo
                         if hc.Parent == pObj.Backpack then
                             hum:EquipTool(hc)
                             task.wait(0.1) 
                         end
                         
+                        -- Kích hoạt la bàn chạy ngầm không chạm chuột thật
                         if hc.Parent == char then
                             hc:Activate()
+                        end
+                        
+                        -- 🔥 🔥 CƠ CHẾ RESET DANH SÁCH ĐEN KHI COMPASS TRÊN TAY MẤT ĐI
+                        -- Nếu đây là lần đầu cầm la bàn hoặc la bàn cũ trên tay vừa bị đổi/mất đi
+                        if currentCompassInstance ~= hc then
+                            -- Nếu trước đó đã từng cầm một cái la bàn khác, nay đổi cái mới -> Khởi động lại bộ nhớ
+                            if currentCompassInstance ~= nil then
+                                print("🔄 Phát hiện Compass cũ đã mất hoặc đổi mới! Tiến hành Reset sạch Danh Sách Đen.")
+                                blacklistedSpawns = {} -- Xóa sạch danh sách đen để phục vụ cho chuỗi Quest mới
+                            end
+                            currentCompassInstance = hc -- Ghi nhớ vật phẩm la bàn hiện tại
                         end
                         
                         -- Định vị linh kiện Kim Đỏ trong Workspace
@@ -554,32 +571,28 @@ tab3:CreateToggle({
                         end
                         
                         if needle then
-                            -- 🔥 Thuật toán lắc nhẹ nhân vật để kích thích Server gửi dữ liệu hướng mới
+                            -- Lắc nhẹ góc nhân vật để kích thích Server gửi dữ liệu hướng mới
                             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             
-                            -- 🔥 THUẬT TOÁN ĐỌC HƯỚNG XOAY NGANG CHUẨN (WORLD-SPACE ORIENTATION)
-                            -- Trích xuất chính xác góc quay quanh trục Y của cây kim (Góc xoay trên mặt phẳng ngang bản đồ)
+                            -- Đọc góc xoay ngang thực tế của cây kim đỏ
                             local _, yOrientation, _ = needle.CFrame:ToOrientation()
-                            
-                            -- Chuyển đổi góc xoay thành Vector hướng đi thực tế. 
-                            -- Lưu ý: Nếu game bị lệch trục, bạn có thể chỉnh sửa dấu (-) hoặc đổi vị trí sin/cos ở dòng dưới
                             local moveDirection = Vector3.new(math.sin(yOrientation), 0, math.cos(yOrientation)).Unit
                             
                             local bestNextSpawn = nil
                             local furthestDistance = 0 
-                            local minAngle = 0.92 -- Khóa góc ngắm chặt chẽ để đi đúng đường thẳng kim chỉ
+                            local minAngle = 0.90 -- Góc ngắm chuẩn hướng kim chỉ
                             
-                            -- Bước 3: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ
+                            -- Bước 3: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ ở khoảng cách xa nhất
                             for _, spawnPart in pairs(allTreeSpawns) do
+                                -- 🔥 KHÓA CHẶT: Tuyệt đối không xét đến các điểm nằm trong danh sách đen
                                 if spawnPart and spawnPart.Parent and not blacklistedSpawns[spawnPart] then
                                     local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
                                     local vectorToSpawn = (spawnPos - rootPart.Position)
                                     local distance = vectorToSpawn.Magnitude
                                     
+                                    -- Chỉ xét các điểm ở khoảng cách phía trước mặt (>50 block)
                                     if distance > 50 and distance < 35000 then 
                                         local directionToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
-                                        
-                                        -- Tính toán độ thẳng hàng giữa hướng kim và hướng đến điểm spawn
                                         local dotProduct = moveDirection:Dot(directionToSpawn)
                                         
                                         if dotProduct > minAngle then
@@ -592,44 +605,18 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- MẸO KIỂM TRA ĐẢO TRỤC: Nếu không tìm thấy điểm nào ở phía trước, thử quét trục đối xứng 180 độ
-                            if not bestNextSpawn then
-                                local reverseDirection = -moveDirection
-                                for _, spawnPart in pairs(allTreeSpawns) do
-                                    if spawnPart and spawnPart.Parent and not blacklistedSpawns[spawnPart] then
-                                        local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
-                                        local vectorToSpawn = (spawnPos - rootPart.Position)
-                                        local distance = vectorToSpawn.Magnitude
-                                        
-                                        if distance > 50 and distance < 15000 then
-                                            local directionToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
-                                            if reverseDirection:Dot(directionToSpawn) > 0.95 then
-                                                if distance > furthestDistance then
-                                                    furthestDistance = distance
-                                                    bestNextSpawn = spawnPart
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                            
                             -- Bước 4: Thực hiện Dịch chuyển Tức thời (Snap Teleport)
                             if bestNextSpawn then
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
-                                print("⚡ TP ĐÚNG HƯỚNG -> Điểm spawn cách: " .. math.floor(furthestDistance) .. "m")
+                                print("⚡ TP CHUẨN -> Đưa điểm spawn vào danh sách đen khóa cứng: " .. bestNextSpawn.Parent.Name)
                                 
-                                -- Đưa điểm này vào danh sách đen tạm thời để ép nhân vật tiến lên hòn đảo tiếp theo
+                                -- 🔥 ĐƯA VÀO DANH SÁCH ĐEN KHÓA CỨNG: ÉP KHÔNG ĐƯỢC QUAY LẠI ĐIỂM NÀY NỮA
                                 blacklistedSpawns[bestNextSpawn] = true
-                                task.delay(4, function()
-                                    blacklistedSpawns[bestNextSpawn] = nil
-                                end)
                                 
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             else
-                                -- Giải vây danh sách đen nếu kim quay vào vùng không có cây
-                                blacklistedSpawns = {}
+                                -- Nếu đứng im do kim chưa xoay hoặc bị kẹt góc khuất, nhấp nhô nhẹ để kích hoạt gói tin mạng
                                 rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         end
