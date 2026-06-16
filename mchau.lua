@@ -473,159 +473,140 @@ tab3:CreateToggle({
         end
     end
 })
+-- [HÀM TOÁN HỌC KHỬ LỆCH TRỤC KIM LA BÀN] - ĐẶT Ở ĐẦU SCRIPT
+local function getCorrectCompassDirection(needle, spawners, rootPos, blacklisted)
+    if not needle or not needle:IsA("BasePart") then return nil, 0 end
+    
+    -- Quét toàn bộ 6 hướng không gian có thể xảy ra của khối kim đỏ
+    local potentialDirs = {
+        needle.CFrame.LookVector,   -- Trục trước
+        -needle.CFrame.LookVector,  -- Trục sau
+        needle.CFrame.RightVector,  -- Trục phải
+        -needle.CFrame.RightVector, -- Trục trái
+        needle.CFrame.UpVector,     -- Trục trên
+        -needle.CFrame.UpVector     -- Trục dưới
+    }
+    
+    local bestSpawn = nil
+    local maxDistance = 0
+    local minAngle = 0.90 -- Khóa góc thẳng hàng cực hẹp chống bay lệch hướng
+    
+    -- Duyệt tìm tia hướng nào khớp hoàn hảo với chuỗi cây Spawner phía trước mặt
+    for _, rawDir in pairs(potentialDirs) do
+        local moveDir = Vector3.new(rawDir.X, 0, rawDir.Z).Unit
+        
+        for _, spawner in pairs(spawners) do
+            if spawner and spawner.Parent then
+                local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
+                local posKey = math.floor(spawnPos.X) .. "," .. math.floor(spawnPos.Y) .. "," .. math.floor(spawnPos.Z)
+                
+                -- Điều kiện lọc: Spawner chưa nằm trong danh sách đen khóa vĩnh viễn
+                if not blacklisted[posKey] then
+                    local vectorToSpawn = (spawnPos - rootPos)
+                    local dist = vectorToSpawn.Magnitude
+                    
+                    if dist > 50 and dist < 35000 then
+                        local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
+                        local dotProduct = moveDir:Dot(dirToSpawn)
+                        
+                        -- Nếu tìm thấy tia trùng khớp với cây ở khoảng cách xa nhất dọc đường kim chỉ
+                        if dotProduct > minAngle and dist > maxDistance then
+                            maxDistance = dist
+                            bestSpawn = spawner
+                        end
+                    end
+                end
+            end
+        end
+        -- Nếu tia hướng này đã tìm được mục tiêu chuẩn xác, ngắt bộ quét để tối ưu hiệu năng
+        if bestSpawn then break end
+    end
+    
+    return bestSpawn, maxDistance
+end
 
--- 🌟 NÚT 2: [BẢN FIX NGƯỢC HƯỚNG KIM] ĐỒNG BỘ 100% THEO MŨI TÊN ĐỎ - KHÔNG CHẠM CHUỘT THẬT
+-- 🌟 NÚT 2: [BẢN TÁCH RỜI SIÊU GỌN CHẸT MẠNG] - CHẠY NGẦM BALO KHÔNG CHẠM CHUỘT
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
-        
         local pObj = game:GetService("Players").LocalPlayer
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Bước 1: Thu thập và gom toàn bộ linh kiện Spawner từ thư mục Trees của game
+                -- Gom toàn bộ Spawner từ MapFolder.Trees
                 local allTreeSpawns = {}
                 local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
-                
                 if treesFolder then
                     for _, child in pairs(treesFolder:GetChildren()) do
-                        local spawnerPart = child:FindFirstChild("Spawner")
-                        if spawnerPart and (spawnerPart:IsA("BasePart") or spawnerPart:IsA("Model")) then
-                            table.insert(allTreeSpawns, spawnerPart)
-                        end
+                        local spawner = child:FindFirstChild("Spawner")
+                        if spawner then table.insert(allTreeSpawns, spawner) end
                     end
-                else
-                    print("❌ Không tìm thấy đường dẫn workspace.MapFolder.Trees!")
                 end
                 
-                -- Tạo tấm đệm ẩn lót chân bảo vệ an toàn chống rơi xuống biển
-                local safetyPlatform = Instance.new("Part")
+                -- Tạo tấm đệm tàng hình lót chân chống rơi nước
+                local safetyPlatform = Instance.new("Part", workspace)
                 safetyPlatform.Size = Vector3.new(6, 1, 6)
                 safetyPlatform.Transparency = 1
                 safetyPlatform.Anchored = true
                 safetyPlatform.CanCollide = true
-                safetyPlatform.Name = "SafetyTPPlatform"
                 
-                -- BẢNG DANH SÁCH ĐEN KHÓA TỌA ĐỘ VĨNH VIỄN
                 local blacklistedPositions = {}
                 local currentCompassInstance = nil
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.2) -- Giữ nhịp độ quét mượt mà để la bàn kịp xoay hướng thực
-                    
+                    task.wait(0.2)
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if hum and hum.Health > 0 and rootPart then
-                        safetyPlatform.Parent = workspace
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- KIỂM TRA COMPASS TRÊN TAY HOẶC TRONG BALO
+                        -- Quét kiểm tra la bàn trong balo/trên tay
                         local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
-                        
-                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Nếu hết la bàn trong người thì tự tắt hack
                         if not hc then
-                            print("🎉 Đã hết la bàn trong balo! Dừng dịch chuyển.")
-                            if safetyPlatform then safetyPlatform:Destroy() end
                             _G.AutoFlyToCompassDirection = false
-                            if tab3.SetToggle then tab3:SetToggle(false) end 
+                            if tab3.SetToggle then tab3:SetToggle(false) end
                             break
                         end
                         
-                        -- Nếu la bàn nằm trong balo, ép nhân vật cầm lên tay
-                        if hc.Parent == pObj.Backpack then
-                            hum:EquipTool(hc)
-                            task.wait(0.1) 
-                        end
+                        -- Tự động cầm công cụ lên tay và kích hoạt ngầm
+                        if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.1) end
+                        if hc.Parent == char then hc:Activate() end
                         
-                        -- KÍCH HOẠT LA BÀN CHẠY NGẦM
-                        if hc.Parent == char then
-                            hc:Activate()
-                        end
-                        
-                        -- CƠ CHẾ RESET BLACKLIST KHI COMPASS TRÊN TAY BIẾN MẤT
+                        -- Reset danh sách đen vĩnh viễn khi la bàn hiện tại biến mất/đổi mới
                         if currentCompassInstance ~= hc then
-                            if currentCompassInstance ~= nil then
-                                print("🔄 Phát hiện Compass trên tay đã đổi hoặc mất! Reset sạch Danh Sách Đen.")
-                                blacklistedPositions = {} 
-                            end
-                            currentCompassInstance = hc 
+                            if currentCompassInstance ~= nil then blacklistedPositions = {} end
+                            currentCompassInstance = hc
                         end
                         
-                        -- Định vị linh kiện Kim Đỏ trong Workspace
+                        -- Tìm kiếm linh kiện kim la bàn trong Workspace
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
-                            if item.Name == "CompassNeedle" and item:IsA("BasePart") then
-                                needle = item
-                                break
-                            end
+                            if item.Name == "CompassNeedle" and item:IsA("BasePart") then needle = item break end
                         end
                         
                         if needle then
-                            -- Lắc nhẹ góc nhân vật để kích thích Server cập nhật dữ liệu hướng mới
+                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin mạng hướng đi mới
                             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             
-                            -- 🔥 SỬA LỖI NGƯỢC HƯỚNG TỪ GỐC VECTOR CỦA GAME:
-                            -- Thay vì dùng LookVector thông thường dễ bị dev game xoay ngược model, 
-                            -- chúng ta sẽ bóc tách ma trận CFrame hướng Vector mặt sau (hoặc mặt trước đã hiệu chỉnh âm)
-                            -- Nếu chạy vẫn bị ngược, bạn chỉ cần đổi dấu trừ (-) ở trước chữ needle thành dấu cộng (+) hoặc ngược lại.
-                            local compassDirection = -needle.CFrame.LookVector 
+                            -- Gọi hàm định hướng tự động đã khai báo ở Phần 1
+                            local bestNextSpawn, furthestDistance = getCorrectCompassDirection(needle, allTreeSpawns, rootPart.Position, blacklistedPositions)
                             
-                            -- Đảm bảo Vector hướng di chuyển chỉ tính trên mặt phẳng ngang (X, Z) để đi thẳng chuẩn đảo
-                            local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
-                            
-                            local bestNextSpawn = nil
-                            local furthestDistance = 0 
-                            local minAngle = 0.88 -- Góc ngắm chuẩn hướng kim chỉ
-                            
-                            -- Bước 3: Duyệt tìm Spawner nằm dọc hướng kim chỉ ở khoảng cách xa nhất
-                            for _, spawnPart in pairs(allTreeSpawns) do
-                                if spawnPart and spawnPart.Parent then
-                                    local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
-                                    
-                                    -- MÃ HÓA TỌA ĐỘ VỊ TRÍ
-                                    local posKey = math.floor(spawnPos.X) .. "," .. math.floor(spawnPos.Y) .. "," .. math.floor(spawnPos.Z)
-                                    
-                                    -- ĐIỀU KIỆN KHÓA CHẶT: Chỉ xét các tọa độ CHƯA từng đi qua
-                                    if not blacklistedPositions[posKey] then
-                                        local vectorToSpawn = (spawnPos - rootPart.Position)
-                                        local distance = vectorToSpawn.Magnitude
-                                        
-                                        -- Xét các điểm Spawner ở phía trước mặt (Khoảng cách > 50 block)
-                                        if distance > 50 and distance < 35000 then 
-                                            local directionToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
-                                            local dotProduct = moveDirection:Dot(directionToSpawn)
-                                            
-                                            if dotProduct > minAngle then
-                                                -- Chọn điểm Spawner xa nhất dọc đường kim chỉ để bay tịnh tiến siêu tốc
-                                                if distance > furthestDistance then
-                                                    furthestDistance = distance
-                                                    bestNextSpawn = spawnPart
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                            
-                            -- Bước 4: Thực hiện Dịch chuyển Tức thời (Snap Teleport)
+                            -- Thực hiện dịch chuyển tức thời (Snap Teleport)
                             if bestNextSpawn then
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
-                                
-                                -- Đưa tọa độ vừa chọn vào danh sách đen khóa vĩnh viễn trong chu kỳ la bàn này
                                 local targetKey = math.floor(targetPos.X) .. "," .. math.floor(targetPos.Y) .. "," .. math.floor(targetPos.Z)
+                                
+                                -- Khóa vĩnh viễn tọa độ này trong chu kỳ la bàn hiện tại
                                 blacklistedPositions[targetKey] = true
+                                print("⚡ ĐÃ FIX NGƯỢC HƯỚNG -> TP tới cây cách: " .. math.floor(furthestDistance) .. "m")
                                 
-                                print("⚡ TP ĐÚNG HƯỚNG MŨI TÊN ĐỎ -> Khóa cứng Spawner: [" .. targetKey .. "]")
-                                
-                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             else
-                                -- Nhấp nhô nhẹ tọa độ nếu kim đang xoay dở để tránh đơ mạng
                                 rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         end
@@ -636,6 +617,7 @@ tab3:CreateToggle({
         end
     end
 })
+
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
