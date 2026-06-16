@@ -190,8 +190,10 @@ task.spawn(function()
 end)
 
 local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
+
 -- Tạo mục Farm ở thanh danh mục bên trái
 local FarmTab = MainMenu:CreateTab("Farm ⚔️")
+
 local _G = _G or {}
 _G.AutoFarm = false
 local fakeMonsterBlacklist = {} local currentTarget = nil local previousHealth = 0 local checkTimer = 0
@@ -219,8 +221,11 @@ FarmTab:CreateToggle({
                         local myHumanoid = character:FindFirstChildOfClass("Humanoid")
                         if myRoot and myHumanoid and myHumanoid.Health > 0 then
                             local targetNPC = nil local targetPart = nil
+                            
+                            -- Quét tìm mục tiêu hợp lệ
                             for _, obj in pairs(workspace:GetDescendants()) do
-                                if not fakeMonsterBlacklist[obj] then
+                                -- Kiểm tra Blacklist theo cả Object và Tên của NPC đó
+                                if not fakeMonsterBlacklist[obj] and not fakeMonsterBlacklist[obj.Name] then
                                     local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
                                     if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 2000 then
                                         local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
@@ -241,25 +246,55 @@ FarmTab:CreateToggle({
                                     end
                                 end
                             end
+                            
+                            -- Xử lý logic tấn công và phát hiện bất tử
                             if targetNPC and targetPart then
                                 local enemyHumanoid = targetNPC:FindFirstChildOfClass("Humanoid")
+                                
                                 if currentTarget == targetNPC then
+                                    -- Nếu máu của mục tiêu giữ nguyên hoặc tăng lên (đánh không mất máu)
                                     if enemyHumanoid and enemyHumanoid.Health >= previousHealth then
                                         checkTimer = checkTimer + 1
-                                        if checkTimer > 25 then fakeMonsterBlacklist[targetNPC] = true currentTarget = nil checkTimer = 0 end
+                                        -- Đợi đủ 60 vòng lặp (~1.2 giây) để chắc chắn vũ khí đã vung trúng nhưng không gây được sát thương
+                                        if checkTimer > 60 then 
+                                            fakeMonsterBlacklist[targetNPC] = true 
+                                            fakeMonsterBlacklist[targetNPC.Name] = true -- Đưa tên NPC vào danh sách đen vĩnh viễn
+                                            warn("🔴 Đã chặn NPC bất tử: " .. targetNPC.Name)
+                                            currentTarget = nil 
+                                            checkTimer = 0 
+                                        end
                                     else
-                                        if enemyHumanoid then previousHealth = enemyHumanoid.Health end checkTimer = 0
+                                        -- Nếu quái bị mất máu thành công thì cập nhật lại máu mới và reset bộ đếm lỗi
+                                        if enemyHumanoid then previousHealth = enemyHumanoid.Health end 
+                                        checkTimer = 0
                                     end
                                 else
-                                    currentTarget = targetNPC if enemyHumanoid then previousHealth = enemyHumanoid.Health end checkTimer = 0
+                                    -- Đổi mục tiêu mới
+                                    currentTarget = targetNPC 
+                                    if enemyHumanoid then previousHealth = enemyHumanoid.Health end 
+                                    checkTimer = 0
                                 end
-                                if currentTarget == targetNPC and not fakeMonsterBlacklist[targetNPC] then
+                                
+                                -- Thực hiện di chuyển và đánh (Chỉ chạy khi không nằm trong Blacklist)
+                                if currentTarget == targetNPC and not fakeMonsterBlacklist[targetNPC] and not fakeMonsterBlacklist[targetNPC.Name] then
                                     local targetPosition = targetPart.Position + (targetPart.CFrame.LookVector * -1.2)
                                     myRoot.CFrame = CFrame.new(targetPosition, targetPart.Position)
+                                    
                                     local tool = character:FindFirstChildOfClass("Tool")
-                                    if not tool then local backpackTool = localPlayer.Backpack:FindFirstChildOfClass("Tool") if backpackTool then backpackTool.Parent = character end end
-                                    pcall(function() VirtualUser:CaptureController() VirtualUser:ClickButton1(Vector2.new(9999, 9999)) end)
+                                    if not tool then 
+                                        local backpackTool = localPlayer.Backpack:FindFirstChildOfClass("Tool") 
+                                        if backpackTool then backpackTool.Parent = character end 
+                                    end
+                                    
+                                    pcall(function() 
+                                        VirtualUser:CaptureController() 
+                                        VirtualUser:ClickButton1(Vector2.new(9999, 9999)) 
+                                    end)
                                 end
+                            else
+                                -- Nếu không tìm thấy quái nào hợp lệ, reset mục tiêu hiện tại
+                                currentTarget = nil
+                                checkTimer = 0
                             end
                         end
                     end
@@ -268,6 +303,7 @@ FarmTab:CreateToggle({
         end
     end
 })
+
 -- ====================================================================
 -- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN - KHÓA ĐỘ CAO CHỐNG RƠI LỌT ĐẤT
 -- ====================================================================
