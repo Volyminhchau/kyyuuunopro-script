@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN KHÔNG DÙNG CHUỘT THẬT] TỰ ĐỘNG CẦM LA BÀN TRONG BALO - TP LIÊN TỤC THEO KIM ĐỎ ĐẾN KHI HẾT LA BÀN
+-- 🌟 NÚT 2: [BẢN SỬA LỖI LẶP ĐIỂM] TP LIÊN TỤC THEO KIM ĐỎ - KHÔNG CHẠM CHUỘT THẬT - CHỐNG KẸT NHẦM ĐIỂM
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -511,8 +511,11 @@ tab3:CreateToggle({
                 safetyPlatform.CanCollide = true
                 safetyPlatform.Name = "SafetyTPPlatform"
                 
+                -- 🔥 BẢNG DANH SÁCH ĐEN CHỐNG LẶP: Ghi nhớ các điểm spawn đã nhảy qua để không nhảy lại nhầm
+                local blacklistedSpawns = {}
+                
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.2) -- Nhịp quét siêu tốc giúp nhân vật bay liên tục không khựng
+                    task.wait(0.2) -- Giữ nhịp độ quét mượt mà để la bàn kịp xoay hướng thực
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -523,32 +526,30 @@ tab3:CreateToggle({
                         safetyPlatform.Parent = workspace
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- 🔥 🔥 BƯỚC 2: TỰ ĐỘNG KIỂM TRA VÀ CẦM LA BÀN TRONG BALO (BACKPACK)
-                        -- Tìm la bàn linh hoạt: Ưu tiên tìm trong túi đồ (Backpack) hoặc xem đã cầm trên tay (char) chưa
+                        -- KIỂM TRA VÀ CẦM LA BÀN TRONG BALO (BACKPACK)
                         local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
                         
-                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Nếu kiểm tra cả trong balo lẫn trên tay đều KHÔNG CÒN LA BÀN nữa -> TỰ TẮT
+                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Nếu hết la bàn trong người thì tự tắt hack
                         if not hc then
-                            print("🎉 La bàn trong balo đã hết (hoặc đã đổi thành Box DF thành công)! Tiến hành dừng TP.")
+                            print("🎉 Đã hết la bàn trong balo! Dừng dịch chuyển.")
                             if safetyPlatform then safetyPlatform:Destroy() end
                             _G.AutoFlyToCompassDirection = false
-                            if tab3.SetToggle then tab3:SetToggle(false) end -- Tự gạt tắt nút trên Menu UI của bạn
+                            if tab3.SetToggle then tab3:SetToggle(false) end 
                             break
                         end
                         
-                        -- Nếu la bàn đang nằm trong balo, tự động ép nhân vật cầm lên tay
+                        -- Nếu la bàn nằm trong balo, ép nhân vật cầm lên tay
                         if hc.Parent == pObj.Backpack then
                             hum:EquipTool(hc)
-                            task.wait(0.1) -- Đợi 0.1 giây để nhân vật cầm công cụ thành công
+                            task.wait(0.1) 
                         end
                         
-                        -- 🔥 🔥 BƯỚC 3: KÍCH HOẠT LA BÀN CHẠY NGẦM (Không đè chuột thật)
-                        -- Sử dụng lệnh kích hoạt nội bộ của Roblox Tool để ép cây kim đỏ hiện lên chỉ hướng
+                        -- KÍCH HOẠT LA BÀN CHẠY NGẦM (Không đè chuột thật của người chơi)
                         if hc.Parent == char then
                             hc:Activate()
                         end
                         
-                        -- Bước 4: Định vị linh kiện Kim Đỏ trong Workspace để lấy hướng
+                        -- Định vị linh kiện Kim Đỏ trong Workspace để lấy hướng đi
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
                             if item.Name == "CompassNeedle" and item:IsA("BasePart") then
@@ -564,21 +565,23 @@ tab3:CreateToggle({
                             
                             local bestNextSpawn = nil
                             local furthestDistance = 0 
-                            local minAngle = 0.84 -- Góc mở rộng tối đa giúp nhân vật bay mượt không bị khựng
+                            local minAngle = 0.84 -- Góc quét rộng rãi giúp nhân vật di chuyển liên tục
                             
-                            -- Bước 5: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ ở khoảng cách xa nhất
+                            -- Bước 3: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ ở khoảng cách xa nhất
                             for _, spawnPart in pairs(allTreeSpawns) do
-                                if spawnPart and spawnPart.Parent then
+                                -- 🔥 ĐIỀU KIỆN LỌC CHỐNG NHẦM: Bỏ qua nếu điểm spawn này đang nằm trong danh sách đen
+                                if spawnPart and spawnPart.Parent and not blacklistedSpawns[spawnPart] then
                                     local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
                                     local vectorToSpawn = (spawnPos - rootPart.Position)
                                     local distance = vectorToSpawn.Magnitude
                                     
-                                    -- Chỉ xét các điểm spawn ở phía trước mặt (Bỏ qua điểm dưới chân)
-                                    if distance > 45 and distance < 35000 then 
+                                    -- Chỉ xét các điểm spawn ở phía trước mặt (Khoảng cách > 50 block để tránh kẹt tại chỗ)
+                                    if distance > 50 and distance < 35000 then 
                                         local directionToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
                                         local dotProduct = moveDirection:Dot(directionToSpawn)
                                         
                                         if dotProduct > minAngle then
+                                            -- Chọn điểm spawn xa nhất dọc đường kim chỉ để tối ưu tốc độ nhảy
                                             if distance > furthestDistance then
                                                 furthestDistance = distance
                                                 bestNextSpawn = spawnPart
@@ -588,13 +591,26 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Bước 6: Thực hiện Dịch chuyển Tức thời (Snap Teleport) liên tục đến điểm thứ 5 của cây
+                            -- Bước 4: Thực hiện Dịch chuyển Tức thời (Snap Teleport)
                             if bestNextSpawn then
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
-                                print("⚡ TP SIÊU TỐC -> Điểm spawn thứ 5: " .. math.floor(furthestDistance) .. "m")
+                                print("⚡ TP SIÊU TỐC -> Điểm spawn: " .. math.floor(furthestDistance) .. "m")
                                 
+                                -- ĐƯA ĐIỂM VỪA NHẢY VÀO DANH SÁCH ĐEN TẠM THỜI
+                                blacklistedSpawns[bestNextSpawn] = true
+                                -- Tự động xóa điểm này khỏi danh sách đen sau 5 giây để có thể tái sử dụng nếu cần quay lại
+                                task.delay(5, function()
+                                    blacklistedSpawns[bestNextSpawn] = nil
+                                end)
+                                
+                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm điểm spawn
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
+                            else
+                                -- Nếu bị đứng hình do kim chưa cập nhật hướng mới, chủ động xóa bớt danh sách đen cũ để giải vây
+                                blacklistedSpawns = {}
+                                -- Kích thích nhẹ tọa độ để ép la bàn cập nhật gói tin mạng
+                                rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         end
                     end
@@ -604,7 +620,6 @@ tab3:CreateToggle({
         end
     end
 })
-
 
 
 -- ====================================================================
