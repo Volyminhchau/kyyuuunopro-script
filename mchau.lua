@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN DIỆT VÒNG LẶP TOÀN DIỆN] KHÓA VĨNH VIỄN THEO TỌA ĐỘ ĐỊA LÝ - MỖI ĐIỂM CHỈ TP 1 LẦN
+-- 🌟 NÚT 2: [BẢN FIX CHỐNG TRỄ MẠNG] TP CHUỖI 2 ĐẦU KIM - KHÓA TỌA ĐỘ CỨNG VĨNH VIỄN - CHỐNG LẶP TUYỆT ĐỐI
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -501,11 +501,13 @@ tab3:CreateToggle({
                 safetyPlatform.Anchored = true
                 safetyPlatform.CanCollide = true
                 
-                -- 🔥 DANH SÁCH ĐEN KHÓA THEO TỌA ĐỘ: Không lưu theo tên nữa để chống trùng lặp hệ thống
+                -- 🔥 DANH SÁCH ĐEN KHÓA THEO TỌA ĐỘ VỊ TRÍ ĐỊA LÝ VĨNH VIỄN TRONG CHU KỲ
                 local blacklistedPositions = {}
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.25) -- Giữ nhịp delay ổn định để server kịp ghi nhận va chạm chạm cây
+                    -- 🔥 TĂNG DELAY ĐỒNG BỘ: Chờ 0.55 giây để đảm bảo Server nạp kịp Danh Sách Đen và kim la bàn kịp đổi hướng
+                    task.wait(0.55) 
+                    
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
@@ -516,8 +518,7 @@ tab3:CreateToggle({
                         -- Kiểm tra vật phẩm la bàn trong balo hoặc trên tay của bạn
                         local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
                         
-                        -- KIỂM TRA ĐIỀU KIỆN DỪNG HOÀN TOÀN: 
-                        -- Khi không còn la bàn nào trong người (Quest hoàn thành/Hết đồ) -> Reset bộ nhớ danh sách đen
+                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Khi không còn la bàn nào trong người -> Tự tắt và xóa bộ nhớ
                         if not hc then
                             print("🔄 Đã cạn kiệt la bàn hoặc nhận được Box DF! Tiến hành dọn dẹp bộ nhớ.")
                             blacklistedPositions = {} 
@@ -527,7 +528,7 @@ tab3:CreateToggle({
                         end
                         
                         -- Tự động cầm công cụ và kích hoạt chạy ngầm nội bộ
-                        if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.1) end
+                        if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.15) end
                         if hc.Parent == char then hc:Activate() end
                         
                         -- Định vị linh kiện kim la bàn trong Workspace
@@ -552,21 +553,23 @@ tab3:CreateToggle({
                                 if spawner and spawner.Parent then
                                     local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
                                     
-                                    -- 🔥 TẠO MÃ KHÓA TOÁN HỌC KHÔNG TRÙNG LẶP:
-                                    -- Đổi tọa độ X, Y, Z thực tế của Spawner thành một chuỗi văn bản làm tròn để đối chiếu cứng
-                                    local posKey = math.floor(spawnPos.X) .. "," .. math.floor(spawnPos.Y) .. "," .. math.floor(spawnPos.Z)
+                                    -- 🔥 MÃ HÓA TỌA ĐỘ KHỬ RUNG SAI: Chia cho 10 để khóa toàn bộ vùng bán kính 10 block xung quanh cây
+                                    local posX = math.floor(spawnPos.X / 10)
+                                    local posY = math.floor(spawnPos.Y / 10)
+                                    local posZ = math.floor(spawnPos.Z / 10)
+                                    local posKey = posX .. "," .. posY .. "," .. posZ
                                     
                                     -- ĐIỀU KIỆN KHÓA CHẶT TUYỆT ĐỐI: Chỉ duyệt các tọa độ địa lý CHƯA từng được đi qua
                                     if not blacklistedPositions[posKey] then
                                         local vectorToSpawn = (spawnPos - rootPart.Position)
                                         local dist = vectorToSpawn.Magnitude
                                         
-                                        -- Xét tầm quét cây tầm xa từ 40 block đến 35,000 block
-                                        if dist > 40 and dist < 35000 then
+                                        -- 🔥 TĂNG KHOẢNG CÁCH TỐI THIỂU (dist > 150 block) để triệt tiêu hoàn toàn việc quét trúng đảo cũ do trễ mạng
+                                        if dist > 150 and dist < 35000 then
                                             local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
                                             local alignment = math.abs(moveDirection:Dot(dirToSpawn))
                                             
-                                            -- Nếu cây nằm thẳng hàng trên trục kim la bàn chỉ
+                                            -- Nếu cây nằm thẳng hàng trên trục kim la bàn chỉ (Góc lệch cực nhỏ > 0.90)
                                             if alignment > 0.90 and dist > maxDistance then
                                                 maxDistance = dist
                                                 bestNextSpawn = spawner
@@ -581,10 +584,13 @@ tab3:CreateToggle({
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
                                 
                                 -- 🔥 ĐƯA TỌA ĐỘ VÀO DANH SÁCH ĐEN KHÓA CHẾT VĨNH VIỄN ĐẾN KHI HẾT COMPASS
-                                local targetKey = math.floor(targetPos.X) .. "," .. math.floor(targetPos.Y) .. "," .. math.floor(targetPos.Z)
+                                local targetX = math.floor(targetPos.X / 10)
+                                local targetY = math.floor(targetPos.Y / 10)
+                                local targetZ = math.floor(targetPos.Z / 10)
+                                local targetKey = targetX .. "," .. targetY .. "," .. targetZ
                                 blacklistedPositions[targetKey] = true 
                                 
-                                print("⚡ TP SIÊU TỐC -> Khóa cứng vị trí hình học: [" .. targetKey .. "]")
+                                print("⚡ ĐỒNG BỘ MẠNG THÀNH CÔNG -> Đã khóa vĩnh viễn vị trí: [" .. targetKey .. "]")
                                 
                                 -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner mục tiêu
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
