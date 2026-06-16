@@ -646,7 +646,7 @@ tab4:CreateToggle({
             
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.05) -- Giảm thời gian chờ xuống 0.05s để bấm ô trắng nhanh/mượt hơn
+                    task.wait(0.1) -- Vòng lặp tuần hoàn an toàn chống lag
                     
                     local char = pObj.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
@@ -655,29 +655,16 @@ tab4:CreateToggle({
                     if mr and hum and hum.Health > 0 and GameRequire then
                         local pGui = pObj:FindFirstChild("PlayerGui")
                         
-                        -- 🌟 BƯỚC 1: THANH TRA VÀ GIẢI MINIGAME BẰNG CÁCH NHẤP Ô TRẮNG MỤC TIÊU
+                        -- 🌟 BƯỚC 1: THANH TRA VÀ BẺ KHÓA MINIGAME (AUTO WIN CHẮC CHẮN 100%)
                         local fishingMinigameGui = pGui:FindFirstChild("FishingMinigame")
                         if fishingMinigameGui and fishingMinigameGui.Enabled == true then
-                            
-                            -- Quét toàn bộ các nút bấm bên trong giao diện Minigame
-                            for _, btn in pairs(fishingMinigameGui:GetDescendants()) do
-                                -- Kiểm tra nếu là Nút bấm và có màu Background đổi sang màu trắng mục tiêu (230, 230, 230)
-                                if btn:IsA("TextButton") and btn.BackgroundColor3 == Color3.fromRGB(230, 230, 230) then
-                                    
-                                    -- Tạo độ trễ ngẫu nhiên siêu nhỏ (0.01s - 0.03s) để mô phỏng phản xạ người thật qua mặt Anti-cheat
-                                    task.wait(math.random(1, 3) / 100)
-                                    
-                                    pcall(function()
-                                        -- Sử dụng hàm kích hoạt nút bấm gốc của Roblox UI (Tương đương click chuột chuẩn 100%)
-                                        btn:Activate()
-                                        warn("🎯 [Auto Click] Đã bấm trúng ô trắng mục tiêu!")
-                                    end)
-                                    
-                                    -- Sau khi bấm trúng ô hiện tại, dừng vòng lặp quét ngay lập tức 
-                                    -- để chờ nhịp game tiếp theo tráo (shuffle) sang ô mới
-                                    break 
-                                end
-                            end
+                            pcall(function()
+                                -- Khi bảng "PULL IT!" hiện ra, ép Server trả thưởng cá ngay lập tức mà không cần tự click 15 lần
+                                GameRequire["\t"]("FishingEvent", { "Caught" })
+                                fishingMinigameGui.Enabled = false -- Đóng giao diện bảng minigame
+                                warn("⚡ Đã tự động kích hoạt Auto-Win Minigame thành công!")
+                            end)
+                            task.wait(1.5) -- Đợi server đồng bộ dữ liệu nhận cá
                         
                         -- 🌟 BƯỚC 2: LOGIC TỰ ĐỘNG THẢ CẦN VÀ CHỜ CÁ CẮN
                         else
@@ -696,7 +683,7 @@ tab4:CreateToggle({
                             if holdingRod and string.lower(holdingRod.Name) == string.lower(_G.SelectedRod) then
                                 -- Quét tìm thực thể Phao câu ẩn của bạn trong Workspace
                                 local myBobber = nil
-                                for _, b in pairs(workspace:GetChildren()) do -- Tối ưu thay GetDescendants bằng GetChildren để đỡ lag máy
+                                for _, b in pairs(workspace:GetDescendants()) do
                                     if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure") or string.find(string.lower(b.Name), "fishing")) then
                                         if (mr.Position - b.Position).Magnitude < 80 then
                                             myBobber = b break
@@ -707,8 +694,8 @@ tab4:CreateToggle({
                                 -- TRƯỜNG HỢP A: ĐÃ THẢ DÂY CÂU -> Đợi hiệu ứng đốm xanh lá bùng lên để giật cần
                                 if myBobber then
                                     local fishBiting = false
-                                    for _, obj in pairs(myBobber:GetChildren()) do -- Chỉ quét bên trong phao câu để tránh quét toàn bộ bản đồ gây đứng hình
-                                        if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) then
+                                    for _, obj in pairs(workspace:GetDescendants()) do
+                                        if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) and (obj:IsDescendantOf(myBobber) or (obj.Parent:IsA("BasePart") and (obj.Parent.Position - myBobber.Position).Magnitude < 10)) then
                                             -- Thuật toán phân tích dải màu của hệ thống hạt, lọc đúng màu xanh lá (Green > 0.65)
                                             if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints.Value.G > 0.65 and obj.Color.Keypoints.Value.R < 0.45) then
                                                 fishBiting = true break
@@ -728,7 +715,7 @@ tab4:CreateToggle({
                                         pcall(function()
                                             GameRequire["\t"]("FishingEvent", { "Reel" })
                                         end)
-                                        task.wait(1.2) -- Chờ bảng minigame mở ra để vòng lặp sau xử lý nhấp ô trắng
+                                        task.wait(1.2) -- Chờ bảng minigame mở ra để vòng lặp sau xử lý Auto-Win
                                     end
                                     
                                 -- TRƯỜNG HỢP B: CHƯA THẢ DÂY CÂU -> Gọi mã hóa quăng dây câu xuống biển
