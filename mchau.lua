@@ -93,7 +93,7 @@ function MyLibrary:CreateWindow(titleText)
         local ButtonCorner = Instance.new("UICorner") ButtonCorner.CornerRadius = UDim.new(0, 8) ButtonCorner.Parent = TabButton
         local ButtonStroke = Instance.new("UIStroke") ButtonStroke.Thickness = 1 ButtonStroke.Color = (TabCount == 1) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(40, 40, 50) ButtonStroke.Parent = TabButton
 
-        table.insert(Tabs, {Button = TabButton, Content = TabContent, Stroke = ButtonStroke})
+            table.insert(Tabs, {Button = TabButton, Content = TabContent, Stroke = ButtonStroke})
         TabButton.MouseButton1Click:Connect(function()
             for _, t in pairs(Tabs) do 
                 t.Content.Visible = (t.Button == TabButton) 
@@ -103,21 +103,20 @@ function MyLibrary:CreateWindow(titleText)
         end)
         
         local TabMethods = {}
+        
+        -- 1. HÀM TẠO TOGGLE GỐC CỦA BẠN
         function TabMethods:CreateToggle(config)
             local toggleName = config.Name or "Toggle" local callback = config.Callback or function() end local isToggled = config.CurrentValue or false
             
-            -- Khung bọc nút Toggle xịn bo góc
             local ToggleFrame = Instance.new("Frame") ToggleFrame.Size = UDim2.new(1, -5, 0, 48) ToggleFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32) ToggleFrame.BorderSizePixel = 0 ToggleFrame.Parent = TabContent
             local FrameCorner = Instance.new("UICorner") FrameCorner.CornerRadius = UDim.new(0, 10) FrameCorner.Parent = ToggleFrame
             local FrameStroke = Instance.new("UIStroke") FrameStroke.Thickness = 1 FrameStroke.Color = Color3.fromRGB(35, 35, 45) FrameStroke.Parent = ToggleFrame
 
             local ToggleText = Instance.new("TextLabel") ToggleText.Size = UDim2.new(1, -80, 1, 0) ToggleText.Position = UDim2.new(0, 14, 0, 0) ToggleText.BackgroundTransparency = 1 ToggleText.Text = toggleName ToggleText.TextColor3 = Color3.fromRGB(240, 240, 245) ToggleText.TextSize = 13 ToggleText.TextXAlignment = Enum.TextXAlignment.Left ToggleText.Font = Enum.Font.GothamBold ToggleText.Parent = ToggleFrame
             
-            -- 🌟 THANH TRƯỢT SLIDER TOGGLE: Thiết kế rãnh trượt chuẩn công nghệ Premium
             local SliderBg = Instance.new("Frame") SliderBg.Size = UDim2.new(0, 52, 0, 26) SliderBg.Position = UDim2.new(1, -66, 0.5, -13) SliderBg.BackgroundColor3 = isToggled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(50, 50, 60) SliderBg.Parent = ToggleFrame
             local SliderCorner = Instance.new("UICorner") SliderCorner.CornerRadius = UDim.new(0, 13) SliderCorner.Parent = SliderBg
             
-            -- Viên bi tròn chạy hoạt ảnh (Circle)
             local Circle = Instance.new("Frame") Circle.Size = UDim2.new(0, 20, 0, 20) Circle.Position = isToggled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10) Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255) Circle.Parent = SliderBg
             local CircleCorner = Instance.new("UICorner") CircleCorner.CornerRadius = UDim.new(0, 10) CircleCorner.Parent = Circle
             
@@ -125,7 +124,6 @@ function MyLibrary:CreateWindow(titleText)
 
             HitButton.MouseButton1Click:Connect(function()
                 isToggled = not isToggled
-                -- Chạy hiệu ứng trượt hoạt ảnh Smooth mượt mà sang 2 bên
                 if isToggled then 
                     SliderBg.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
                     Circle:TweenPosition(UDim2.new(1, -23, 0.5, -10), "Out", "Quad", 0.15, true)
@@ -136,6 +134,34 @@ function MyLibrary:CreateWindow(titleText)
                 callback(isToggled)
             end)
         end
+        
+        -- 2. HÀM DROPDOWN ĐÃ ĐƯỢC THÊM MỚI CHUẨN GRADIENT
+        function TabMethods:CreateDropdown(config)
+            local dropName = config.Name or "Dropdown"
+            local options = config.Options or {}
+            local callback = config.Callback or function() end
+            local currentSelected = config.CurrentOption or options[1]
+            
+            local DropFrame = Instance.new("Frame") DropFrame.Size = UDim2.new(1, -5, 0, 48) DropFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32) DropFrame.BorderSizePixel = 0 DropFrame.Parent = TabContent
+            local FrameCorner = Instance.new("UICorner") FrameCorner.CornerRadius = UDim.new(0, 10) FrameCorner.Parent = DropFrame
+            local FrameStroke = Instance.new("UIStroke") FrameStroke.Thickness = 1 FrameStroke.Color = Color3.fromRGB(35, 35, 45) FrameStroke.Parent = DropFrame
+
+            local DropText = Instance.new("TextLabel") DropText.Size = UDim2.new(1, -150, 1, 0) DropText.Position = UDim2.new(0, 14, 0, 0) DropText.BackgroundTransparency = 1 DropText.Text = dropName DropText.TextColor3 = Color3.fromRGB(240, 240, 245) DropText.TextSize = 13 DropText.TextXAlignment = Enum.TextXAlignment.Left DropText.Font = Enum.Font.GothamBold DropText.Parent = DropFrame
+            
+            local SelectBtn = Instance.new("TextButton") SelectBtn.Size = UDim2.new(0, 120, 0, 30) SelectBtn.Position = UDim2.new(1, -134, 0.5, -15) SelectBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) SelectBtn.Text = currentSelected .. " ▾" SelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255) SelectBtn.TextSize = 12 SelectBtn.Font = Enum.Font.GothamBold SelectBtn.Parent = DropFrame
+            local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = SelectBtn
+            
+            local currentIdx = 1
+            for i, v in ipairs(options) do if v == currentSelected then currentIdx = i break end end
+            
+            SelectBtn.MouseButton1Click:Connect(function()
+                currentIdx = currentIdx + 1 if currentIdx > #options then currentIdx = 1 end
+                currentSelected = options[currentIdx]
+                SelectBtn.Text = currentSelected .. " ▾"
+                callback(currentSelected)
+            end)
+        end
+        
         return TabMethods
     end
     return LibraryMethods
