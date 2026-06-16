@@ -434,7 +434,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN DỊCH CHUYỂN CHẠM ĐÍCH TOUCHINTEREST (100%)
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN FIX 100% THEO LOG GIAO DIỆN TOUCH INPUT
 -- ====================================================================
 
 -- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
@@ -474,76 +474,57 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: DỊCH CHUYỂN TỨC THỜI CHỚP MẮT TỚI ĐIỂM CHẠM WORKSPACE COMPASS
+-- 🌟 NÚT 2: GIẢ LẬP SỰ KIỆN TOUCH INPUT CLICK LA BÀN LIÊN TỤC (SỬA LỖI ĐỨNG IM)
 tab3:CreateToggle({
-    Name = "Dịch chuyển tức thời theo la bàn",
+    Name = "Tự động kích hoạt & Giải mã La bàn",
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
         
         local pObj = game:GetService("Players").LocalPlayer
+        local virtualUser = game:GetService("VirtualUser")
         
         if _G.AutoFlyToCompassDirection then
+            -- Kích hoạt Anti-AFK để tránh bị Roblox ngắt kết nối khi đang chạy click ngầm
+            pcall(function()
+                pObj.Idled:Connect(function()
+                    virtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                    task.wait(1)
+                    virtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                end)
+            end)
+
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.5) -- Nhịp delay an toàn cho hệ thống nạp dữ liệu
+                    task.wait(0.1) -- Tốc độ spam click cực nhanh (0.1 giây/lần) giống hệt log Touch của game
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
-                    if mr and hum and hum.Health > 0 then
-                        -- 1. Tìm vật thể đích nằm trong Workspace (Dựa trên đường dẫn bạn phát hiện)
-                        local targetCompass = workspace:FindFirstChild("Compass") or workspace:FindFirstChild("compass")
-                        local targetHandle = targetCompass and targetCompass:FindFirstChild("Handle")
+                    if hum and hum.Health > 0 then
+                        -- Kiểm tra la bàn từ đường dẫn Backpack chuẩn của bạn
+                        local hc = char:FindFirstChild("Compass") or pObj.Backpack:FindFirstChild("Compass")
                         
-                        -- Phương án quét diện rộng nếu game giấu Compass đích vào thư mục con của Workspace
-                        if not targetHandle then
-                            for _, obj in pairs(workspace:GetChildren()) do
-                                if obj.Name == "Compass" or obj.Name == "compass" then
-                                    -- Đảm bảo đây là vật thể đích trên đảo chứ không phải la bàn nhân vật đang cầm
-                                    if obj ~= char:FindFirstChild("Compass") and not obj:IsAncestorOf(char) then
-                                        targetHandle = obj:FindFirstChild("Handle")
-                                        if targetHandle then break end
-                                    end
-                                end
-                            end
+                        -- Nếu la bàn ở trong Balo, ép nhân vật cầm ra tay để kích hoạt trạng thái sử dụng
+                        if hc and hc.Parent == pObj.Backpack then
+                            hum:EquipTool(hc)
+                            task.wait(0.15)
                         end
                         
-                        -- 2. Thực hiện dịch chuyển và giả lập va chạm nhận Trái Ác Quỷ
-                        if targetHandle then
-                            -- Giải phóng khóa chân trước khi nhảy tọa độ
-                            mr.Anchored = false
-                            for _, part in pairs(char:GetChildren()) do
-                                if part:IsA("BasePart") then part.Anchored = false end
-                            end
-                            
-                            -- [INSTANT TP] Đưa nhân vật đến sát vị trí Handle đích
-                            mr.CFrame = targetHandle.CFrame * CFrame.new(0, 1, 0)
-                            
-                            -- Khóa chân 0.3 giây tại đích
-                            mr.Anchored = true
-                            
-                            -- MẸO ĐỈNH CAO: Kích hoạt trực tiếp sự kiện chạm (Touch) mà không cần đợi chân nhân vật va vào vật lý
-                            local touchInterest = targetHandle:FindFirstChildOfClass("TouchInterest")
-                            if touchInterest then
-                                firetouchinterest(mr, targetHandle, 0) -- Giả lập Chạm (Touch)
-                                task.wait(0.05)
-                                firetouchinterest(mr, targetHandle, 1) -- Giả lập Thả (Untouch)
-                            end
-                            
-                            task.wait(0.25)
-                            mr.Anchored = false
+                        if hc and hc.Parent == char then
+                            -- Bẻ khóa hoàn toàn bằng cách giả lập đồng thời 3 cơ chế chạm hệ thống:
+                            pcall(function()
+                                -- Cách 1: Ép công cụ kích hoạt hoạt ảnh gốc
+                                hc:Activate()
+                                
+                                -- Cách 2: Giả lập cú click chuột trái/chạm màn hình vật lý vào tâm game (Giải quyết dòng log Touch của bạn)
+                                virtualUser:ClickButton1(Vector2.new(0, 0))
+                                
+                                -- Cách 3: Gửi tín hiệu nhấn giữ màn hình ngầm để bypass mini-game la bàn nếu có
+                                virtualUser:CaptureController()
+                            end)
                         end
                     end
-                end
-            end)
-        else
-            -- Giải phóng nhân vật tự do khi tắt nút bấm
-            pcall(function()
-                local char = pObj.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    char.HumanoidRootPart.Anchored = false
                 end
             end)
         end
