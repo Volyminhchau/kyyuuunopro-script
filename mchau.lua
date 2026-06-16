@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN TỰ ĐỘNG BẤM GIỮ CHUỘT] TP QUA CÁC CÂY TRONG MAPFOLDER - ĐÃ BỎ KHÓA CỨNG
+-- 🌟 NÚT 2: [BẢN TP SIÊU TỐC LIÊN TỤC] NHẢY QUA ĐIỂM CON THỨ 5 CỦA CÂY THEO KIM ĐỎ ĐẾN KHI MẤT LA BÀN
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 tab3:CreateToggle({
@@ -487,17 +487,17 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Bước 1: Thu thập trước danh sách tất cả các cây từ MapFolder của game
-                local allTrees = {}
+                -- Bước 1: Quét lưu sẵn danh sách tất cả các điểm con thứ 5 của cây trong MapFolder
+                local allTreeSpawns = {}
                 local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
                 
                 if treesFolder then
                     for _, child in pairs(treesFolder:GetChildren()) do
-                        local model = child:FindFirstChild("Model") or child:FindFirstChildWhichIsA("Model")
-                        if model then
-                            local part = model:FindFirstChild("Part") or model:FindFirstChildWhichIsA("BasePart")
-                            if part then
-                                table.insert(allTrees, part)
+                        local childChildren = child:GetChildren()
+                        if #childChildren >= 5 then
+                            local targetSpawn = childChildren[5] -- Khóa chính xác vào phần tử thứ 5
+                            if targetSpawn and (targetSpawn:IsA("BasePart") or targetSpawn:IsA("Model")) then
+                                table.insert(allTreeSpawns, targetSpawn)
                             end
                         end
                     end
@@ -505,7 +505,7 @@ tab3:CreateToggle({
                     print("❌ Không tìm thấy đường dẫn workspace.MapFolder.Trees!")
                 end
                 
-                -- Tạo tấm đệm tàng hình lót chân chống rơi xuống biển khi di chuyển
+                -- Tạo tấm đệm ẩn lót chân bảo vệ an toàn chống rơi xuống biển
                 local safetyPlatform = Instance.new("Part")
                 safetyPlatform.Size = Vector3.new(6, 1, 6)
                 safetyPlatform.Transparency = 1
@@ -513,24 +513,32 @@ tab3:CreateToggle({
                 safetyPlatform.CanCollide = true
                 safetyPlatform.Name = "SafetyTPPlatform"
                 
-                local lastVisitedTree = nil
+                -- Tính toán tọa độ tâm la bàn theo độ phân giải màn hình của bạn
+                local viewportSize = workspace.CurrentCamera.ViewportSize
+                local clickX = viewportSize.X * 0.82 
+                local clickY = viewportSize.Y * 0.68
                 
-                -- 🔥 KÍCH HOẠT GIỮ CHUỘT TRÁI: Đè chuột ảo để hiện kim đỏ la bàn liên tục
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1) 
+                -- Kích hoạt đè chuột trái ảo liên tục vào la bàn ngay từ đầu
+                VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, true, game, 1)
                 
+                -- VÒNG LẶP KIỂM TRA ĐIỀU KIỆN: Chỉ chạy khi bật nút gạt
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.4) -- Giữ nhịp độ vừa phải để server đồng bộ hướng
+                    -- Đẩy tốc độ nhịp quét lên cực cao (0.15 giây một lần nhảy) giúp nhân vật bay liên tục xuyên đảo
+                    task.wait(0.15) 
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if hum and hum.Health > 0 and rootPart then
-                        -- Đưa tấm đệm đi theo dưới chân nhân vật
+                        -- Đảm bảo tấm đệm luôn lót dưới chân đề phòng kẹt mạng
                         safetyPlatform.Parent = workspace
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- Bước 2: Dò tìm linh kiện Kim Đỏ (CompassNeedle) trong Workspace
+                        -- Duy trì việc đè chuột ảo để kim la bàn luôn hiện và chỉ hướng liên tục
+                        VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, true, game, 1)
+                        
+                        -- Bước 2: Định vị linh kiện Kim Đỏ trong Workspace
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
                             if item.Name == "CompassNeedle" and item:IsA("BasePart") then
@@ -540,91 +548,75 @@ tab3:CreateToggle({
                         end
                         
                         if needle then
-                            -- Ép góc nhìn nhân vật xoay nhẹ để kích thích la bàn tính toán hướng đi mới
-                            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
-                            task.wait(0.05)
-                            
-                            -- Đọc hướng thực của mũi kim đỏ
+                            -- Đọc hướng thực tế của mũi kim đỏ
                             local compassDirection = needle.CFrame.LookVector
                             local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
                             
-                            local bestNextTree = nil
-                            local minAngle = 0.95 -- Khóa góc thẳng hướng theo mũi tên
-                            local closestDistance = 999999 -- Tầm quét cây vô hạn xuyên các hòn đảo
+                            local bestNextSpawn = nil
+                            local furthestDistance = 0 
+                            local minAngle = 0.84 -- Mở rộng góc ngắm tối đa để nhân vật không bao giờ bị khựng lại dọc đường
                             
-                            -- Bước 3: Duyệt danh sách cây trong MapFolder theo hướng kim chỉ
-                            for _, treePart in pairs(allTrees) do
-                                if treePart and treePart.Parent and treePart ~= lastVisitedTree then
-                                    local vectorToTree = (treePart.Position - rootPart.Position)
-                                    local distance = vectorToTree.Magnitude
+                            -- Bước 3: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ ở khoảng cách xa nhất
+                            for _, spawnPart in pairs(allTreeSpawns) do
+                                if spawnPart and spawnPart.Parent then
+                                    local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
+                                    local vectorToSpawn = (spawnPos - rootPart.Position)
+                                    local distance = vectorToSpawn.Magnitude
                                     
-                                    if distance > 35 then -- Bỏ qua cái cây đang đứng
-                                        local directionToTree = Vector3.new(vectorToTree.X, 0, vectorToTree.Z).Unit
-                                        local dotProduct = moveDirection:Dot(directionToTree)
+                                    -- Chỉ xét các điểm spawn ở phía trước mặt (Bỏ qua điểm đang đứng)
+                                    if distance > 40 and distance < 30000 then 
+                                        local directionToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
+                                        local dotProduct = moveDirection:Dot(directionToSpawn)
                                         
                                         if dotProduct > minAngle then
-                                            if distance < closestDistance then
-                                                closestDistance = distance
-                                                bestNextTree = treePart
+                                            -- Chọn điểm spawn xa nhất để tịnh tiến siêu tốc xuyên map
+                                            if distance > furthestDistance then
+                                                furthestDistance = distance
+                                                bestNextSpawn = spawnPart
                                             end
                                         end
                                     end
                                 end
                             end
                             
-                            -- Bước 4: Thực hiện dịch chuyển tự do đến ngọn cây tiếp theo
-                            if bestNextTree then
-                                lastVisitedTree = bestNextTree
-                                print("🌳 Nhảy tự do theo kim đỏ tới cây tiếp theo: " .. bestNextTree.Parent.Name)
+                            -- Bước 4: Thực hiện Dịch chuyển Tức thời (Snap Teleport) liên tục không dừng khựng
+                            if bestNextSpawn then
+                                local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
+                                print("⚡ TP SIÊU TỐC -> Điểm spawn thứ 5: " .. math.floor(furthestDistance) .. "m")
                                 
-                                safetyPlatform.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(0, 4.5, 0))
-                                rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(0, 5.5, 0))
-                                task.wait(0.1)
-                                
-                                -- Quét hitbox vòng tròn sát thân cây để kích hoạt vùng đổi quà của SamQuest
-                                for i = 1, 4 do
-                                    local angle = (i / 4) * math.pi * 2
-                                    rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(math.cos(angle) * 2.5, 3, math.sin(angle) * 2.5))
-                                    task.wait(0.03)
-                                end
-                            else
-                                -- Nếu kim đang xoay dở, nhấp nhô nhẹ tại chỗ để tránh lỗi đứng im đơ mạng
-                                rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
-                            end
-                        else
-                            print("⚠️ Không tìm thấy CompassNeedle, hãy đảm bảo la bàn đang hiển thị trên màn hình!")
-                        end
-                        
-                        -- Bước 5: Kiểm tra điều kiện xuất hiện Box DF xung quanh
-                        local successClaim = false
-                        for _, obj in pairs(workspace:GetChildren()) do
-                            if obj:IsA("Model") and (string.find(string.lower(obj.Name), "box") or string.find(string.lower(obj.Name), "reward")) then
-                                if (obj:GetPivot().Position - rootPart.Position).Magnitude < 25 then
-                                    successClaim = true
-                                    break
-                                end
+                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm điểm spawn trong cùng một tích tắc
+                                safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
+                                rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             end
                         end
                         
-                        if successClaim then
-                            print("🎉 Quá tuyệt vời! Đã lấy thành công Box DF.")
-                            -- 🔥 NHẢ CHUỘT TRÁI: Giải phóng chuột khi đã nhận được rương
-                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                        -- 🔥 ĐIỀU KIỆN KIỂM TRA ĐÍCH (Kiểm tra xem la bàn còn tồn tại trong thế giới/màn hình hay không)
+                        local hasCompassInGame = false
+                        for _, item in pairs(workspace:GetDescendants()) do
+                            if item.Name == "CompassNeedle" or (item:IsA("Model") and string.find(string.lower(item.Name), "compass")) then
+                                hasCompassInGame = true
+                                break
+                            end
+                        end
+                        
+                        -- NẾU KHÔNG CÒN BẤT KỲ DẤU VẾT NÀO CỦA LA BÀN (Đã nhận được Box DF/Xong Quest) -> DỪNG NGAY
+                        if not hasCompassInGame then
+                            print("🎉 Thành công! La bàn đã biến mất hoàn toàn. Đã đổi được Box DF tại cây đích!")
+                            VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, false, game, 1) -- Nhả chuột ra hẳn
                             if safetyPlatform then safetyPlatform:Destroy() end
                             _G.AutoFlyToCompassDirection = false
-                            if tab3.SetToggle then tab3:SetToggle(false) end
+                            if tab3.SetToggle then tab3:SetToggle(false) end -- Tự động tắt nút gạt UI của bạn
                             break
                         end
                     end
                 end
-                -- Tự động nhả chuột ảo nếu bạn chủ động tắt nút gạt bằng tay
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                -- Dọn dẹp an toàn khi tắt bằng tay
+                VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, false, game, 1)
                 if safetyPlatform then safetyPlatform:Destroy() end
             end)
         end
     end
 })
-
 
 
 -- ====================================================================
