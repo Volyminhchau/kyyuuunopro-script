@@ -609,7 +609,7 @@ tab3:CreateToggle({
 })
 
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - TỐI ƯU GIẢM LAG + CLICK MINIGAME
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - SIÊU TỐC KHÔNG PHỤ THUỘC PHAO
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing = false
@@ -644,9 +644,12 @@ tab4:CreateToggle({
             local GameModuleScript = ReplicatedFirst:FindFirstChildOfClass("ModuleScript")
             local GameRequire = GameModuleScript and require(GameModuleScript)
             
+            -- Biến theo dõi trạng thái quăng câu
+            local isCasted = false
+            
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.1) -- Tốc độ vòng lặp chuẩn hóa để chống sập/lag game
+                    task.wait(0.05) -- Tốc độ quét tối ưu chống lag
                     
                     local char = pObj.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
@@ -655,25 +658,26 @@ tab4:CreateToggle({
                     if mr and hum and hum.Health > 0 and GameRequire then
                         local pGui = pObj:FindFirstChild("PlayerGui")
                         
-                        -- 🌟 BƯỚC 1: XỬ LÝ CLICK GIẢI ĐỐ MINIGAME (NHẮM THẲNG PHÂN CẤP - CHỐNG LAG)
+                        -- 🌟 BƯỚC 1: XỬ LÝ CLICK GIẢI ĐỐ MINIGAME NGAY KHI XUẤT HIỆN
                         local minigameGui = pGui:FindFirstChild("FishingMinigame")
                         if minigameGui and minigameGui.Enabled == true then
+                            isCasted = false -- Reset lại trạng thái quăng câu khi đã vào minigame
+                            
                             pcall(function()
-                                -- Chỉ tìm kiếm nút bấm trong khung chứa cụ thể (Frame chứa nút) chứ không dùng GetDescendants toàn hệ thống
                                 local container = minigameGui:FindFirstChildOfClass("Frame")
-                                local contentFrame = container and container:FindFirstChildOfClass("Frame") -- v_u_21 trong code gốc
+                                local contentFrame = container and container:FindFirstChildOfClass("Frame")
                                 
                                 if contentFrame then
-                                    -- Quét qua danh sách các ô nút bấm đang hiển thị
                                     for _, btn in pairs(contentFrame:GetChildren()) do
                                         if btn:IsA("TextButton") and btn.Visible then
-                                            -- Đọc chính xác thuộc tính màu Highlight (Trắng 230) như mã nguồn gốc quy định
+                                            -- Đọc chính xác ô Highlight màu trắng (230) theo code gốc của game
                                             local bg = btn.BackgroundColor3
                                             if math.floor(bg.R * 255) == 230 and math.floor(bg.G * 255) == 230 then
-                                                -- Giả lập bấm chuột phản xạ vào ô sáng
+                                                -- Tính toán tọa độ tâm của ô
                                                 local posX = btn.AbsolutePosition.X + (btn.AbsoluteSize.X / 2)
                                                 local posY = btn.AbsolutePosition.Y + (btn.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
                                                 
+                                                -- Mô phỏng click chuột trái giải đố cực nhanh
                                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
                                                 task.wait(0.01)
                                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
@@ -684,11 +688,11 @@ tab4:CreateToggle({
                                     end
                                 end
                             end)
-                            task.wait(0.05) -- Giãn cách nhẹ để tránh lag chuột ảo
+                            task.wait(0.02)
                         
-                        -- 🌟 BƯỚC 2: LOGIC TỰ ĐỘNG THẢ CẦN VÀ CANH GIẬT CẦN
+                        -- 🌟 BƯỚC 2: LOGIC TỰ ĐỘNG QUĂNG CẦN KHI KHÔNG CÓ MINIGAME
                         else
-                            -- Tự động lấy đúng loại cần câu bạn đã chọn ra tay
+                            -- Tự động lấy đúng loại cần câu ra tay nếu chưa cầm
                             local holdingRod = char:FindFirstChildOfClass("Tool")
                             if not holdingRod or string.lower(holdingRod.Name) ~= string.lower(_G.SelectedRod) then
                                 if holdingRod then holdingRod.Parent = pObj.Backpack end
@@ -701,38 +705,14 @@ tab4:CreateToggle({
                             
                             holdingRod = char:FindFirstChildOfClass("Tool")
                             if holdingRod and string.lower(holdingRod.Name) == string.lower(_G.SelectedRod) then
-                                -- TỐI ƯU CHỐNG LAG: Chỉ tìm phao câu trong thư mục chứa dây câu [FishingRope_...] thay vì bới tung Workspace
-                                local myBobber = nil
-                                for _, folder in pairs(workspace:GetChildren()) do
-                                    if string.find(folder.Name, "FishingRope") then
-                                        -- Tìm chiếc phao nằm trực tiếp bên trong folder này
-                                        myBobber = folder:FindFirstChildOfClass("BasePart") or folder:FindFirstChild("bobber", true) or folder:FindFirstChild("phao", true)
-                                        if myBobber then break end
-                                    end
-                                end
-                                
-                                -- TRƯỜNG HỢP A: ĐÃ THẢ DÂY CÂU -> Canh vận tốc chìm để giật cần ngầm qua hệ thống
-                                if myBobber then
-                                    local fishBiting = false
-                                    -- Kiểm tra trực tiếp gia tốc chìm (Cá đớp mồi kéo phao rơi tự do Y < -2)
-                                    if myBobber.AssemblyLinearVelocity.Y < -2 or myBobber:GetAttribute("Biting") == true then
-                                        fishBiting = true
-                                    end
-                                    
-                                    -- Nhận tín hiệu cá cắn -> Gọi mã hóa giật cần của game
-                                    if fishBiting then
-                                        pcall(function()
-                                            GameRequire["\t"]("FishingEvent", { "Reel" })
-                                        end)
-                                        task.wait(1.0)
-                                    end
-                                    
-                                -- TRƯỜNG HỢP B: CHƯA THẢ DÂY CÂU -> Gọi mã hóa quăng cần
-                                else
+                                -- Nếu trạng thái chưa quăng cần, tiến hành gửi lệnh "Cast" lên Server
+                                if not isCasted then
                                     pcall(function()
                                         GameRequire["\t"]("FishingEvent", { "Cast" })
+                                        isCasted = true
+                                        warn("🎣 Đã quăng cần câu, đang đợi cá cắn tự động kích hoạt Minigame...")
                                     end)
-                                    task.wait(2.0) -- Delay an toàn chờ phao nước ổn định
+                                    task.wait(2.5) -- Đợi 2.5 giây cho dây câu bay ra ổn định
                                 end
                             end
                         end
@@ -743,4 +723,4 @@ tab4:CreateToggle({
         end
     end
 })
-
+-
