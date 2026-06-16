@@ -434,7 +434,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - PHONG CÁCH CHUẨN ONE PIECE FINAL
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - DỊCH CHUYỂN TỨC THỜI CHỚP MẮT (INSTANT TP)
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 
@@ -475,30 +475,27 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL + DÒ VỊ TRÍ PHONG CÁCH OP FINAL (DÙNG TWEEN MƯỢT TRÁNH KICK)
+-- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL + DỊCH CHUYỂN TỨC THỜI (INSTANT TELEPORT)
 tab3:CreateToggle({
-    Name = "Bay theo hướng la bàn chỉ",
+    Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
         
         local pObj = game:GetService("Players").LocalPlayer
-        local tweenService = game:GetService("TweenService")
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.3) -- Nhịp quét balo tối ưu chống giật lag
+                    task.wait(0.5) -- Nhịp delay an toàn cho Instant TP chống tràn bộ nhớ dữ liệu
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- Tự động tìm kiểm tra Compass trong người
+                        -- Tự động kiểm tra và cưỡng ép cầm la bàn ra tay
                         local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass")
-                        
-                        -- Cưỡng ép nhân vật cầm la bàn ra tay
                         if not hc then
                             for _, item in pairs(pObj.Backpack:GetChildren()) do
                                 local itemName = string.lower(item.Name)
@@ -511,12 +508,12 @@ tab3:CreateToggle({
                             end
                         end
                         
-                        -- Xử lý tìm tọa độ khi đã cầm chắc la bàn trên tay
+                        -- Xử lý dịch chuyển khi đã cầm chắc la bàn trên tay
                         if hc then
                             pcall(function() hc:Activate() end)
-                            task.wait(0.15)
+                            task.wait(0.1) -- Đợi dữ liệu vị trí đồng bộ
                             
-                            -- Gỡ bỏ hoàn toàn tình trạng đóng băng chân do thuộc tính game gây ra
+                            -- Mở khóa chân ban đầu để giải phóng nhân vật
                             mr.Anchored = false
                             for _, p in pairs(char:GetChildren()) do
                                 if p:IsA("BasePart") then p.Anchored = false end
@@ -524,11 +521,9 @@ tab3:CreateToggle({
                             
                             local treasurePosition = nil
                             
-                            -- ĐOẠN FIX MỚI: Quét lõi game lấy các Object đích (Đặc trưng dòng game One Piece Final)
-                            -- Ưu tiên dò tìm thẳng các Model được gán mục tiêu ẩn
+                            -- Hướng A: Quét Model rương/cây chứa chỉ số mục tiêu trùng khớp (Chuẩn OP Final)
                             for _, obj in pairs(workspace:GetChildren()) do
                                 if obj:IsA("Model") and (string.find(string.lower(obj.Name), "island") or string.find(string.lower(obj.Name), "tree") or string.find(string.lower(obj.Name), "chest")) then
-                                    -- Kiểm tra nếu vật thể có các chỉ số Value được đồng bộ với la bàn của bạn
                                     local isTarget = obj:FindFirstChild("TargetValue") or obj:FindFirstChild("CompassTarget")
                                     if isTarget then
                                         treasurePosition = obj:GetPivot().Position break
@@ -536,7 +531,7 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Hướng B: Quét cấu trúc tia định hướng (Beam/Attachment) nối từ la bàn ra thế giới
+                            -- Hướng B: Quét tia Beam ngầm nối từ la bàn ra thế giới
                             if not treasurePosition then
                                 for _, child in pairs(workspace:GetDescendants()) do
                                     if child:IsA("Beam") and (child.Attachment0 and child.Attachment0:IsAncestorOf(char) or child.Attachment1 and child.Attachment1:IsAncestorOf(char)) then
@@ -548,52 +543,42 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Hướng C (Dự phòng tối cao): Giải toán LookVector từ cây Kim la bàn (Không dùng Raycast mù)
+                            -- Hướng C (Dự phòng): Nhảy chặng tức thời 3000 Studs theo Vector phẳng của kim chỉ nam
                             if not treasurePosition then
                                 local needle = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle")
                                 if needle then
-                                    -- Lấy hướng xoay mặt phẳng nằm ngang (X, Z) của kim chỉ nam để triệt tiêu việc cắm đầu xuống đất
                                     local lookDir = needle.CFrame.LookVector
                                     local flatDirection = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
-                                    -- Thiết lập mục tiêu nhảy chặng mượt phía trước theo hướng kim chỉ
-                                    treasurePosition = mr.Position + (flatDirection * 1500)
+                                    treasurePosition = mr.Position + (flatDirection * 3000)
                                 end
                             end
                             
-                            -- 🌟 THỰC HIỆN DI CHUYỂN PHONG CÁCH TWEEN MƯỢT (CHỐNG KICK ANTI-CHEAT):
+                            -- 🌟 THỰC THI DỊCH CHUYỂN TỨC THỜI (INSTANT TP):
                             if treasurePosition then
-                                -- Tính toán khoảng cách để thiết lập tốc độ Tween hợp lý (Tránh đi quá nhanh bị kích)
-                                local distance = (mr.Position - treasurePosition).Magnitude
-                                local speed = 350 -- Đơn vị studs trên giây (Tốc độ an toàn cao nhất của OP Final)
-                                local tweenTime = distance / speed
+                                -- Dịch chuyển chớp mắt đến vị trí cao hơn mục tiêu 3 block để tránh kẹt đất
+                                mr.CFrame = CFrame.new(treasurePosition.X, treasurePosition.Y + 3, treasurePosition.Z)
                                 
-                                if tweenTime < 0.1 then tweenTime = 0.1 end
-                                
-                                -- Khóa trọng lực để tránh nhân vật bị rơi tự do xuống biển trong lúc đang bay
-                                local bv = mr:FindFirstChild("CompassVelocity") or Instance.new("BodyVelocity")
-                                bv.Name = "CompassVelocity"
-                                bv.Velocity = Vector3.new(0, 0, 0)
-                                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-                                bv.Parent = mr
-                                
-                                local targetCFrame = CFrame.new(Vector3.new(treasurePosition.X, treasurePosition.Y + 4, treasurePosition.Z))
-                                local tweenInfo = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear)
-                                local tween = tweenService:Create(mr, tweenInfo, {CFrame = targetCFrame})
-                                
-                                tween:Play()
-                                tween.Completed:Wait() -- Chờ nhân vật bay tới điểm đích thành công
-                                
-                                -- Xóa bỏ dòng giữ trọng lực khi đã đến đích an toàn
-                                if mr:FindFirstChild("CompassVelocity") then
-                                    mr.CompassVelocity:Destroy()
-                                end
+                                -- [QUAN TRỌNG] Khóa cứng nhân vật 0.2 giây tại đích để vượt Anti-Cheat và nhặt vật phẩm công khai
+                                mr.Anchored = true
                                 task.wait(0.2)
+                                mr.Anchored = false
                             end
                         end
                     end
                 end
             end)
         else
+            -- Đảm bảo mở khóa chân hoàn toàn khi người chơi TẮT tính năng
+            pcall(function()
+                local char = pObj.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    char.HumanoidRootPart.Anchored = false
+                end
+            end)
+        end
+    end
+})
+
             -- Giải phóng hoàn toàn nhân vật và dọn dẹp thuộc tính bay khi người chơi TẮT nút
             pcall(function()
                 local char = pObj.Character
