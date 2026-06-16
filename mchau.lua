@@ -610,8 +610,10 @@ local _G = _G or {}
 _G.AutoFishing = false
 _G.SelectedRod = "Wood Rod"
 
+-- 🌟 DÒNG LỆNH QUAN TRỌNG: Khởi tạo Tab Fishing xuất hiện ở danh mục bên trái menu
 local tab4 = MainMenu:CreateTab("Fishing 🎣")
 
+-- Tạo Menu dạng danh sách lựa chọn cần câu
 tab4:CreateDropdown({
     Name = "Chọn loại Cần Câu (Select Rod)",
     Options = {"Wood Rod", "Sturdy Rod", "Super Rod"},
@@ -622,6 +624,7 @@ tab4:CreateDropdown({
     end,
 })
 
+-- Tạo nút Công tắc gạt Slider kích hoạt Auto
 tab4:CreateToggle({
     Name = "Tự động Câu Cá (Auto Fishing V3)",
     CurrentValue = false,
@@ -660,7 +663,7 @@ tab4:CreateToggle({
                         
                         -- 🌟 BƯỚC 2: LOGIC TỰ ĐỘNG THẢ CẦN VÀ CHỜ CÁ CẮN
                         else
-                            -- Tự động kiểm tra và lấy đúng loại cần câu bạn đã chọn ra tay
+                            -- Tự động kiểm tra và lấy đúng loại cần câu bạn đã chọn ra tay từ balo ảo
                             local holdingRod = char:FindFirstChildOfClass("Tool")
                             if not holdingRod or string.lower(holdingRod.Name) ~= string.lower(_G.SelectedRod) then
                                 if holdingRod then holdingRod.Parent = pObj.Backpack end
@@ -688,7 +691,7 @@ tab4:CreateToggle({
                                     local fishBiting = false
                                     for _, obj in pairs(workspace:GetDescendants()) do
                                         if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) and (obj:IsDescendantOf(myBobber) or (obj.Parent:IsA("BasePart") and (obj.Parent.Position - myBobber.Position).Magnitude < 10)) then
-                                            -- Thuật toán phân tích dải màu của hệ thống hạt, lọc đúng màu xanh lá (G > 0.65)
+                                            -- Thuật toán phân tích dải màu của hệ thống hạt, lọc đúng màu xanh lá (Green > 0.65)
                                             if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints.Value.G > 0.65 and obj.Color.Keypoints.Value.R < 0.45) then
                                                 fishBiting = true break
                                             elseif obj:IsA("Sparkles") and (obj.SparkleColor.G > 0.65 and obj.SparkleColor.R < 0.45) then
@@ -726,4 +729,5 @@ tab4:CreateToggle({
         end
     end
 })
+
 
