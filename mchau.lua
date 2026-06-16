@@ -617,7 +617,7 @@ tab3:CreateToggle({
 
 
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ONE PIECE FINAL (REMOTE BYPASS EDITION)
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing = false
@@ -631,7 +631,7 @@ tab4:CreateDropdown({
     CurrentOption = "Wood Rod",
     Callback = function(Option)
         _G.SelectedRod = Option
-        warn("🎣 Đã chuyển sang sử dụng loại cần: " .. tostring(_G.SelectedRod))
+        warn("🎣 Đã chọn cần câu: " .. tostring(_G.SelectedRod))
     end,
 })
 
@@ -643,13 +643,15 @@ tab4:CreateToggle({
         
         if _G.AutoFishing then
             local pObj = game:GetService("Players").LocalPlayer
-            local vU = game:GetService("VirtualUser")
             local VirtualInputManager = game:GetService("VirtualInputManager")
             local GuiService = game:GetService("GuiService")
             
+            -- Dò tìm chính xác RemoteEvent câu cá từ bảng Dex Explorer của bạn
+            local FishingRemote = game:GetService("ReplicatedStorage"):FindFirstChild("FishingEvent", true)
+            
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.02) -- Đẩy tốc độ phản xạ lên siêu tốc để bấm ô Highlight ngay khi đổi
+                    task.wait(0.02) -- Tốc độ phản xạ siêu tốc để giải minigame
                     
                     local char = pObj.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
@@ -660,111 +662,103 @@ tab4:CreateToggle({
                         local isMinigameActive = false
                         local highlightedTargetGui = nil
                         
-                        -- 🌟 BƯỚC 1: DÒ TÌM BẢNG MINIGAME "PULL IT!" ĐANG HIỂN THỊ TRÊN MÀN HÌNH
-                        if pGui then
-                            for _, gui in pairs(pGui:GetDescendants()) do
-                                -- Kiểm tra tiêu đề chữ PULL IT! xuất hiện
-                                if gui:IsA("TextLabel") and (string.find(string.lower(gui.Text), "pull") or string.find(string.lower(gui.Text), "hard") or string.find(string.lower(gui.Text), "medium") or string.find(string.lower(gui.Text), "easy")) then
-                                    if gui.IsVisible or (gui.AbsoluteSize.X > 0 and gui.AbsoluteWindowPosition.X > 0) then
-                                        isMinigameActive = true
-                                    end
-                                end
-                                
-                                -- 🌟 BƯỚC 2: DÒ CHÍNH XÁC Ô ĐANG ĐƯỢC CHỌN (HIGHLIGHTED) TRONG 5 Ô CON VẬT
-                                if isMinigameActive and (gui:IsA("ImageButton") or gui:IsA("TextButton") or gui:IsA("Frame") or gui:IsA("ImageLabel")) and gui.Visible and gui.AbsoluteSize.X > 0 then
-                                    -- Kiểm tra nếu ô UI này có chứa UIStroke (Viền bao quanh làm nổi bật)
+                        -- 🌟 BƯỚC 1: KIỂM TRA BẢNG "FishingMinigame" (Xác thực chuẩn theo ảnh Dex)
+                        local fishingMinigameGui = pGui:FindFirstChild("FishingMinigame")
+                        if fishingMinigameGui and fishingMinigameGui.Enabled == true then
+                            isMinigameActive = true
+                            
+                            -- Dò tìm ô con vật đang sáng viền (Highlighted) để chuẩn bị click giải đố
+                            for _, gui in pairs(fishingMinigameGui:GetDescendants()) do
+                                if (gui:IsA("ImageButton") or gui:IsA("TextButton") or gui:IsA("Frame") or gui:IsA("ImageLabel")) and gui.Visible and gui.AbsoluteSize.X > 0 then
                                     local stroke = gui:FindFirstChildOfClass("UIStroke")
                                     if stroke and stroke.Enabled then
-                                        -- Nếu viền có màu sáng nổi bật (như viền đỏ hoặc viền trắng nổi lên)
-                                        if stroke.Color.R > 0.7 or (stroke.Color.R > 0.4 and stroke.Color.G > 0.4) then
-                                            highlightedTargetGui = gui break
-                                        end
-                                    end
-                                    
-                                    -- Dự phòng: Nếu game không dùng UIStroke mà dùng cơ chế đổi màu nền (BackgroundColor) hoặc đổi độ trong suốt
-                                    if gui:GetAttribute("Highlighted") == true or gui:GetAttribute("Active") == true then
                                         highlightedTargetGui = gui break
                                     end
                                 end
                             end
                         end
                         
-                        -- 🌟 BƯỚC 3: TỰ ĐỘNG BẤM CHÍNH XÁC VÀO Ô ĐANG SÁNG VIỀN
+                        -- 🌟 BƯỚC 2: TỰ ĐỘNG GIẢI MINIGAME BẤM Ô HÌNH CON CÁ CHÍNH XÁC 100%
                         if isMinigameActive and highlightedTargetGui then
                             pcall(function()
-                                -- Tính toán tọa độ tâm của ô con vật đang sáng viền
                                 local posX = highlightedTargetGui.AbsolutePosition.X + (highlightedTargetGui.AbsoluteSize.X / 2)
                                 local posY = highlightedTargetGui.AbsolutePosition.Y + (highlightedTargetGui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
                                 
-                                -- Giả lập click chuột trái vào ô đó
                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
                                 task.wait(0.01)
                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
-                                
-                                -- Ép kích hoạt nút bấm UI
                                 if highlightedTargetGui:IsA("ImageButton") or highlightedTargetGui:IsA("TextButton") then
                                     highlightedTargetGui:Activate()
                                 end
                             end)
-                            task.wait(0.03) -- Trì hoãn cực ngắn để chuẩn bị bấm ô tiếp theo khi game đổi vị trí sáng
+                            task.wait(0.03) -- Trì hoãn cực ngắn chờ game đổi ô sáng tiếp theo
                         
-                        -- 🌟 BƯỚC 4: NẾU KHÔNG CÓ MINIGAME -> LOGIC QUĂNG DÂY VÀ ĐỢI ĐỐM XANH LÁ CẮN CÂU
+                        -- 🌟 BƯỚC 3: LOGIC THẢ CẦN VÀ ĐỢI CÁ CẮN TRỰC TIẾP QUA REMOTE EVENT
                         else
+                            -- Sửa lỗi trang bị: Tự động lôi cần ra tay từ Backpack
                             local holdingRod = char:FindFirstChildOfClass("Tool")
-                            if holdingRod and string.find(string.lower(holdingRod.Name), "rod") then
-                                
-                                -- Tìm chiếc phao câu của bạn ở Workspace gần bè/thuyền
+                            if not holdingRod or not string.find(string.lower(holdingRod.Name), "rod") then
+                                local targetRodInBackpack = pObj.Backpack:FindFirstChild(_G.SelectedRod)
+                                if targetRodInBackpack then
+                                    hum:EquipTool(targetRodInBackpack)
+                                    task.wait(0.3)
+                                end
+                            end
+                            
+                            holdingRod = char:FindFirstChildOfClass("Tool")
+                            if holdingRod then
+                                -- Dò tìm chiếc phao câu của bạn ở Workspace
                                 local myBobber = nil
                                 for _, b in pairs(workspace:GetDescendants()) do
-                                    if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure") or string.find(string.lower(b.Name), "fishing")) then
+                                    if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure")) then
                                         if (mr.Position - b.Position).Magnitude < 80 then
                                             myBobber = b break
                                         end
                                     end
                                 end
                                 
-                                -- Trường hợp A: Phao đang ở dưới nước -> Đợi đốm hiệu ứng màu xanh bùng lên để giật cần
+                                -- TRƯỜNG HỢP A: ĐÃ THẢ DÂY CÂU -> Canh đốm xanh bùng lên hoặc phao chìm để giật cần qua Remote
                                 if myBobber then
                                     local fishBiting = false
+                                    
+                                    -- Kiểm tra đốm màu xanh lá xuất hiện tại phao
                                     for _, obj in pairs(workspace:GetDescendants()) do
-                                        if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) and (obj:IsDescendantOf(myBobber) or (obj.Parent:IsA("BasePart") and (obj.Parent.Position - myBobber.Position).Magnitude < 8)) then
-                                            -- Lọc màu xanh lá cây đặc trưng của game khi cá cắn (Green > 0.7)
-                                            if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints.Value.G > 0.7 and obj.Color.Keypoints.Value.R < 0.4) then
+                                        if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) and (obj:IsDescendantOf(myBobber) or (obj.Parent:IsA("BasePart") and (obj.Parent.Position - myBobber.Position).Magnitude < 10)) then
+                                            if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints.Value.G > 0.65 and obj.Color.Keypoints.Value.R < 0.45) then
                                                 fishBiting = true break
-                                            elseif obj:IsA("Sparkles") and (obj.SparkleColor.G > 0.7 and obj.SparkleColor.R < 0.4) then
+                                            elseif obj:IsA("Sparkles") and (obj.SparkleColor.G > 0.65 and obj.SparkleColor.R < 0.45) then
                                                 fishBiting = true break
                                             end
                                         end
                                     end
                                     
-                                    -- Dự phòng thêm cơ chế giật phao vật lý
+                                    -- Kiểm tra xung lực vật lý phao chìm trục Y làm dự phòng
                                     if not fishBiting and (myBobber.AssemblyLinearVelocity.Y < -2.2 or myBobber:GetAttribute("Biting") == true) then
                                         fishBiting = true
                                     end
                                     
-                                    -- Báo cá cắn -> Click chuột trái giật cần lôi bảng minigame lên!
+                                    -- Cá cắn câu -> Gửi lệnh kích hoạt giật cần trực tiếp lên Server game thông qua FishingEvent
                                     if fishBiting then
-                                        pcall(function()
-                                            vU:CaptureController()
-                                            vU:ClickButton1(Vector2.new(9999, 9999))
-                                        end)
-                                        task.wait(1.2) -- Trì hoãn chờ bảng PULL IT! hiện ra
+                                        if FishingRemote and FishingRemote:IsA("RemoteEvent") then
+                                            FishingRemote:FireServer("Reel") -- Gửi tín hiệu thu dây lên hệ thống backend của game
+                                        else
+                                            holdingRod:Activate() -- Dự phòng nếu game chặn gửi tham số chuỗi
+                                        end
+                                        task.wait(1.5) -- Đợi bảng minigame PULL IT mở lên hoàn tất
                                     end
                                     
-                                -- Trường hợp B: Chưa thả cần -> Click chuột trái 1 phát để quăng dây xuống biển
+                                -- TRƯỜNG HỢP B: CHƯA THẢ DÂY CÂU -> Gửi lệnh quăng cần câu trực tiếp qua FishingEvent
                                 else
-                                    pcall(function()
-                                        vU:CaptureController()
-                                        vU:ClickButton1(Vector2.new(9999, 9999))
-                                    end)
-                                    task.wait(2.0) -- Đợi hoạt ảnh quăng dây rơi hoàn tất
+                                    if FishingRemote and FishingRemote:IsA("RemoteEvent") then
+                                        FishingRemote:FireServer("Cast") -- Gửi tín hiệu quăng cần lên hệ thống backend của game
+                                    else
+                                        holdingRod:Activate() -- Dự phòng quăng cần truyền thống bằng code vật phẩm
+                                    end
+                                    task.wait(2.0) -- Trì hoãn an toàn cho phao rơi xuống mặt nước ổn định
                                 end
-                            else
-                                -- Nếu script ko chạy, nhắc nhở bạn cầm cần lên tay (Như ô phím nóng số 5 màu xanh trong ảnh)
-                                warn("⚠️ Vui lòng cầm sẵn cần câu trên tay trước khi bật Auto!")
-                                task.wait(1.5)
                             end
                         end
+                        
                     end
                 end
             end)
