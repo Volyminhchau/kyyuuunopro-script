@@ -474,9 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN TP SIÊU TỐC LIÊN TỤC] NHẢY QUA ĐIỂM CON THỨ 5 CỦA CÂY THEO KIM ĐỎ ĐẾN KHI MẤT LA BÀN
-local VirtualInputManager = game:GetService("VirtualInputManager")
-
+-- 🌟 NÚT 2: [BẢN KHÔNG DÙNG CHUỘT THẬT] TỰ ĐỘNG CẦM LA BÀN TRONG BALO - TP LIÊN TỤC THEO KIM ĐỎ ĐẾN KHI HẾT LA BÀN
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -513,32 +511,44 @@ tab3:CreateToggle({
                 safetyPlatform.CanCollide = true
                 safetyPlatform.Name = "SafetyTPPlatform"
                 
-                -- Tính toán tọa độ tâm la bàn theo độ phân giải màn hình của bạn
-                local viewportSize = workspace.CurrentCamera.ViewportSize
-                local clickX = viewportSize.X * 0.82 
-                local clickY = viewportSize.Y * 0.68
-                
-                -- Kích hoạt đè chuột trái ảo liên tục vào la bàn ngay từ đầu
-                VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, true, game, 1)
-                
-                -- VÒNG LẶP KIỂM TRA ĐIỀU KIỆN: Chỉ chạy khi bật nút gạt
                 while _G.AutoFlyToCompassDirection do
-                    -- Đẩy tốc độ nhịp quét lên cực cao (0.15 giây một lần nhảy) giúp nhân vật bay liên tục xuyên đảo
-                    task.wait(0.15) 
+                    task.wait(0.2) -- Nhịp quét siêu tốc giúp nhân vật bay liên tục không khựng
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if hum and hum.Health > 0 and rootPart then
-                        -- Đảm bảo tấm đệm luôn lót dưới chân đề phòng kẹt mạng
+                        -- Đặt tấm đệm ẩn đi theo dưới chân nhân vật
                         safetyPlatform.Parent = workspace
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- Duy trì việc đè chuột ảo để kim la bàn luôn hiện và chỉ hướng liên tục
-                        VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, true, game, 1)
+                        -- 🔥 🔥 BƯỚC 2: TỰ ĐỘNG KIỂM TRA VÀ CẦM LA BÀN TRONG BALO (BACKPACK)
+                        -- Tìm la bàn linh hoạt: Ưu tiên tìm trong túi đồ (Backpack) hoặc xem đã cầm trên tay (char) chưa
+                        local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
                         
-                        -- Bước 2: Định vị linh kiện Kim Đỏ trong Workspace
+                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Nếu kiểm tra cả trong balo lẫn trên tay đều KHÔNG CÒN LA BÀN nữa -> TỰ TẮT
+                        if not hc then
+                            print("🎉 La bàn trong balo đã hết (hoặc đã đổi thành Box DF thành công)! Tiến hành dừng TP.")
+                            if safetyPlatform then safetyPlatform:Destroy() end
+                            _G.AutoFlyToCompassDirection = false
+                            if tab3.SetToggle then tab3:SetToggle(false) end -- Tự gạt tắt nút trên Menu UI của bạn
+                            break
+                        end
+                        
+                        -- Nếu la bàn đang nằm trong balo, tự động ép nhân vật cầm lên tay
+                        if hc.Parent == pObj.Backpack then
+                            hum:EquipTool(hc)
+                            task.wait(0.1) -- Đợi 0.1 giây để nhân vật cầm công cụ thành công
+                        end
+                        
+                        -- 🔥 🔥 BƯỚC 3: KÍCH HOẠT LA BÀN CHẠY NGẦM (Không đè chuột thật)
+                        -- Sử dụng lệnh kích hoạt nội bộ của Roblox Tool để ép cây kim đỏ hiện lên chỉ hướng
+                        if hc.Parent == char then
+                            hc:Activate()
+                        end
+                        
+                        -- Bước 4: Định vị linh kiện Kim Đỏ trong Workspace để lấy hướng
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
                             if item.Name == "CompassNeedle" and item:IsA("BasePart") then
@@ -554,22 +564,21 @@ tab3:CreateToggle({
                             
                             local bestNextSpawn = nil
                             local furthestDistance = 0 
-                            local minAngle = 0.84 -- Mở rộng góc ngắm tối đa để nhân vật không bao giờ bị khựng lại dọc đường
+                            local minAngle = 0.84 -- Góc mở rộng tối đa giúp nhân vật bay mượt không bị khựng
                             
-                            -- Bước 3: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ ở khoảng cách xa nhất
+                            -- Bước 5: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ ở khoảng cách xa nhất
                             for _, spawnPart in pairs(allTreeSpawns) do
                                 if spawnPart and spawnPart.Parent then
                                     local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
                                     local vectorToSpawn = (spawnPos - rootPart.Position)
                                     local distance = vectorToSpawn.Magnitude
                                     
-                                    -- Chỉ xét các điểm spawn ở phía trước mặt (Bỏ qua điểm đang đứng)
-                                    if distance > 40 and distance < 30000 then 
+                                    -- Chỉ xét các điểm spawn ở phía trước mặt (Bỏ qua điểm dưới chân)
+                                    if distance > 45 and distance < 35000 then 
                                         local directionToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
                                         local dotProduct = moveDirection:Dot(directionToSpawn)
                                         
                                         if dotProduct > minAngle then
-                                            -- Chọn điểm spawn xa nhất để tịnh tiến siêu tốc xuyên map
                                             if distance > furthestDistance then
                                                 furthestDistance = distance
                                                 bestNextSpawn = spawnPart
@@ -579,44 +588,23 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Bước 4: Thực hiện Dịch chuyển Tức thời (Snap Teleport) liên tục không dừng khựng
+                            -- Bước 6: Thực hiện Dịch chuyển Tức thời (Snap Teleport) liên tục đến điểm thứ 5 của cây
                             if bestNextSpawn then
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
                                 print("⚡ TP SIÊU TỐC -> Điểm spawn thứ 5: " .. math.floor(furthestDistance) .. "m")
                                 
-                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm điểm spawn trong cùng một tích tắc
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             end
                         end
-                        
-                        -- 🔥 ĐIỀU KIỆN KIỂM TRA ĐÍCH (Kiểm tra xem la bàn còn tồn tại trong thế giới/màn hình hay không)
-                        local hasCompassInGame = false
-                        for _, item in pairs(workspace:GetDescendants()) do
-                            if item.Name == "CompassNeedle" or (item:IsA("Model") and string.find(string.lower(item.Name), "compass")) then
-                                hasCompassInGame = true
-                                break
-                            end
-                        end
-                        
-                        -- NẾU KHÔNG CÒN BẤT KỲ DẤU VẾT NÀO CỦA LA BÀN (Đã nhận được Box DF/Xong Quest) -> DỪNG NGAY
-                        if not hasCompassInGame then
-                            print("🎉 Thành công! La bàn đã biến mất hoàn toàn. Đã đổi được Box DF tại cây đích!")
-                            VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, false, game, 1) -- Nhả chuột ra hẳn
-                            if safetyPlatform then safetyPlatform:Destroy() end
-                            _G.AutoFlyToCompassDirection = false
-                            if tab3.SetToggle then tab3:SetToggle(false) end -- Tự động tắt nút gạt UI của bạn
-                            break
-                        end
                     end
                 end
-                -- Dọn dẹp an toàn khi tắt bằng tay
-                VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, false, game, 1)
                 if safetyPlatform then safetyPlatform:Destroy() end
             end)
         end
     end
 })
+
 
 
 -- ====================================================================
