@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: TELEPORT THEO HƯỚNG KIM ĐỎ - CHỈ ĐÁP XUỐNG ĐẤT LIỀN
+-- 🌟 NÚT 2: [BẢN FIX CHUẨN] TP THEO HƯỚNG KIM ĐỎ COMPASSNEEDLE - CHỈ ĐÁP TRÊN ĐẢO, CHỐNG RƠI NƯỚC
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -486,80 +486,89 @@ tab3:CreateToggle({
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.2) -- Tốc độ quét và dịch chuyển (Có thể chỉnh thấp xuống nếu muốn TP nhanh hơn)
+                    task.wait(0.25) -- Tốc độ nhảy bước dịch chuyển (Giữ nhịp an toàn chống kích)
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if hum and hum.Health > 0 and rootPart then
-                        -- Kiểm tra và tự động trang bị la bàn lên tay
+                        -- 1. Tìm la bàn linh hoạt (Trong tay hoặc trong Túi đồ)
                         local hc = char:FindFirstChild("Compass") or pObj.Backpack:FindFirstChild("Compass")
                         
-                        if hc and hc.Parent == pObj.Backpack then
-                            hum:EquipTool(hc)
-                            task.wait(0.15)
-                        end
-                        
-                        if hc and hc.Parent == char then
-                            hc:Activate() -- Kích hoạt la bàn để cập nhật hướng kim
+                        if hc then
+                            -- Nếu la bàn đang ở trong hành trang, tự động cầm lên tay
+                            if hc.Parent == pObj.Backpack then
+                                hum:EquipTool(hc)
+                                task.wait(0.2)
+                            end
                             
+                            -- Ép kích hoạt la bàn liên tục để server cập nhật hướng xoay của kim đỏ
+                            hc:Activate()
+                            
+                            -- 2. Tìm chính xác phần tử Kim La Bàn màu đỏ (CompassNeedle)
                             local needle = hc:FindFirstChild("CompassNeedle")
-                            if needle and (needle:IsA("BasePart") or needle:IsA("Model")) then
+                            if needle and needle:IsA("BasePart") then
                                 
-                                -- 1. LẤY HƯỚNG CỦA KIM LA BÀN MÀU ĐỎ
-                                -- Thường kim la bàn sẽ chỉ hướng bằng trục LookVector hoặc RightVector tùy theo cách build model của dev game
-                                local needlePart = needle:IsA("Model") and needle.PrimaryPart or needle
-                                local lookDirection = needlePart.CFrame.LookVector
+                                -- THUẬT TOÁN ĐỌC HƯỚNG XOAY CHUẨN TỪ KIM LA BÀN ĐỎ
+                                -- Trích xuất góc quay quanh trục Y (hướng xoay ngang trên bản đồ) của kim la bàn
+                                local _, yOrientation, _ = needle.CFrame:ToOrientation()
+                                -- Chuyển đổi góc xoay thành Vector hướng đi thực tế trong không gian 3D
+                                local targetDirection = Vector3.new(math.sin(yOrientation), 0, math.cos(yOrientation)).Unit
                                 
-                                -- 2. THIẾT LẬP KHOẢNG CÁCH DI CHUYỂN MỖI BƯỚC NHẢY (Ví dụ: nhảy 150 block một lần theo hướng kim)
-                                local stepDistance = 150 
-                                local checkPosition = rootPart.Position + (lookDirection * stepDistance)
+                                -- THIẾT LẬP KHOẢNG CÁCH NHẢY (Mỗi lần TP tiến lên 120 block)
+                                local stepDistance = 120 
+                                local nextTargetPos = rootPart.Position + (targetDirection * stepDistance)
                                 
-                                -- 3. SỬ DỤNG RAYCAST ĐỂ QUÉT TÌM KHỐI VẬT ĐẤT LIỀN TẠI VỊ TRÍ ĐÓ
-                                -- Bắn một tia từ trên cao xuống dưới đất để tìm bề mặt cứng
-                                local raycastOrigin = Vector3.new(checkPosition.X, 300, checkPosition.Z) -- Điểm bắt đầu từ trên trời cao 300 block
-                                local raycastDirection = Vector3.new(0, -400, 0) -- Bắn thẳng xuống dưới đất
+                                -- 3. HỆ THỐNG RAYCAST LỌC ĐỊA HÌNH - CHỈ CHỌN ĐẤT LIỀN TRÊN ĐẢO
+                                -- Bắn tia quét từ trên trời cao (Y = 500) thẳng đứng xuống đáy biển (Y = -200) tại vị trí dự kiến đáp xuống
+                                local rayOrigin = Vector3.new(nextTargetPos.X, 500, nextTargetPos.Z)
+                                local rayDirection = Vector3.new(0, -700, 0)
                                 
-                                local raycastParams = RaycastParams.new()
-                                raycastParams.FilterFilterType = Enum.RaycastFilterType.Exclude
-                                raycastParams.FilterDescendantsInstances = {char} -- Bỏ qua chính cơ thể nhân vật để tránh bắn trúng mình
+                                local rayParams = RaycastParams.new()
+                                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                                rayParams.FilterDescendantsInstances = {char} -- Loại trừ cơ thể nhân vật để tránh quét trúng chính mình
                                 
-                                local raycastResult = workspace:Raycast(raycastOrigin, raycastDirection, raycastParams)
+                                local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
                                 
-                                if raycastResult then
-                                    -- Nếu tìm thấy vật thể ở dưới (Đất liền, Sàn nhà, Địa hình...)
-                                    local hitPart = raycastResult.Instance
-                                    local hitPosition = raycastResult.Position
+                                if rayResult then
+                                    local hitPart = rayResult.Instance
+                                    local hitPos = rayResult.Position
+                                    local partName = string.lower(hitPart.Name)
                                     
-                                    -- Kiểm tra xem có phải là vùng nước biển không (nếu game đặt tên nước là "Water" hoặc "Sea")
-                                    if not string.find(string.lower(hitPart.Name), "water") and not string.find(string.lower(hitPart.Name), "sea") then
+                                    -- ĐIỀU KIỆN KIỂM TRA CHỐNG XUỐNG NƯỚC:
+                                    -- Loại bỏ hoàn toàn nếu vật thể chạm trúng có tên chứa chữ "water", "sea", "ocean" hoặc là chất liệu Nước biển
+                                    if not string.find(partName, "water") and not string.find(partName, "sea") and not string.find(partName, "ocean") and hitPart.Material ~= Enum.Material.Water then
                                         
-                                        -- TIẾN HÀNH TP AN TOÀN ĐẾN ĐIỂM ĐẤT CỨNG VỪA QUÉT ĐƯỢC
+                                        -- TIẾN HÀNH DỊCH CHUYỂN AN TOÀN ĐẾN NỀN ĐẤT CỨNG TRÊN ĐẢO
                                         rootPart.Anchored = true
-                                        rootPart.CFrame = CFrame.new(hitPosition + Vector3.new(0, 3, 0)) -- Cộng thêm 3 block chiều cao để chân chạm đất đẹp
-                                        task.wait(0.1)
+                                        -- Đưa nhân vật đến điểm quét được và cộng thêm 3.5 block chiều cao để không bị lún chân vào đất
+                                        rootPart.CFrame = CFrame.new(hitPos + Vector3.new(0, 3.5, 0))
+                                        task.wait(0.08)
                                         rootPart.Anchored = false
                                         
-                                        print("Đã TP an toàn đến tọa độ đất liền tiếp theo: " .. tostring(hitPosition))
+                                        print("Đã TP an toàn theo kim đỏ đến đất liền: " .. tostring(hitPos))
                                     else
-                                        print("Phát hiện nước biển/vực sâu phía trước theo hướng kim chỉ! Đang tìm góc an toàn khác...")
+                                        print("Phát hiện vùng nước biển/vực sâu phía trước! Không thực hiện TP để bảo vệ nhân vật.")
                                     end
                                 else
-                                    print("Không tìm thấy nền đất liền nào ở hướng này, tạm dừng nhảy để tránh rơi map.")
+                                    print("Không tìm thấy bề mặt cấu trúc đất liền nào ở tọa độ này!")
                                 end
                             else
-                                print("Không tìm thấy CompassNeedle để lấy hướng xoay!")
+                                print("Không tìm thấy linh kiện 'CompassNeedle' bên trong cây thư mục La bàn!")
                             end
                             
-                            -- CƠ CHẾ KIỂM TRA ĐÍCH: Nếu la bàn biến mất hoàn toàn nghĩa là bạn đã chạm trúng mục tiêu ẩn và đổi được Box thành công
+                            -- ĐIỀU KIỆN DỪNG: Nếu bạn đã đến đúng gốc cây mục tiêu, hệ thống game sẽ tự đổi chiếc La bàn thành Box DF (La bàn biến mất)
                             if not char:FindFirstChild("Compass") and not pObj.Backpack:FindFirstChild("Compass") then
-                                print("Chúc mừng! Đã tìm thấy cây và nhận được Box DF.")
+                                print("Thành công! La bàn đã biến mất và đổi thành Box DF trên đảo mục tiêu.")
                                 _G.AutoFlyToCompassDirection = false
-                                if tab3.SetToggle then tab3:SetToggle(false) end
+                                if tab3.SetToggle then 
+                                    tab3:SetToggle(false) -- Tự động tắt nút gạt trên giao diện hack của bạn
+                                end
                                 break
                             end
-                            
+                        else
+                            print("Lỗi: Không tìm thấy vật phẩm mang tên 'Compass' trong túi đồ hoặc trên tay bạn!")
                         end
                     end
                 end
@@ -567,7 +576,6 @@ tab3:CreateToggle({
         end
     end
 })
-
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
 -- ====================================================================
