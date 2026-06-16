@@ -434,10 +434,10 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN BYPASS SAMEVENT NHẬN QUẢ TẠI CHỖ
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN TELEPORT ĐẾN CÂY NHẬN BOX DF
 -- ====================================================================
 
--- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
+-- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Giữ nguyên bản gốc của bạn)
 tab3:CreateToggle({
     Name = "Teleport nhặt Compass rơi trên đất",
     CurrentValue = false,
@@ -474,57 +474,100 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: BẺ KHÓA SAMEVENT - ÉP SERVER CẤP TRÁI ÁC QUỶ NGAY LẬP TỨC
+-- 🌟 NÚT 2: TELEPORT THEO TỌA ĐỘ LA BÀN (Đã sửa đổi loại bỏ Fly/Remote, chuyển thành TP cứng)
 tab3:CreateToggle({
-    Name = "Dịch chuyển tức thời theo la bàn", -- Giữ nguyên tên nút của bạn nhưng đổi lõi thành Hack Remote
+    Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
     Callback = function(v)
-        _G.AutoFlyToCompassDirection = v
+        _G.AutoFlyToCompassDirection = v -- Giữ nguyên tên biến hệ thống của bạn để tránh lỗi đồng bộ
         
         local pObj = game:GetService("Players").LocalPlayer
-        local samRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("SamEvent")
         
-        if _G.AutoFlyToCompassDirection and samRemote then
+        if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.5) -- Nhịp delay an toàn chống spam quá tải Remote
+                    task.wait(0.3) -- Nhịp quét vị trí la bàn
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
-                    if hum and hum.Health > 0 then
-                        -- Kiểm tra la bàn dựa trên túi đồ Backpack chuẩn của bạn
+                    if hum and hum.Health > 0 and rootPart then
+                        -- Kiểm tra và tự động trang bị la bàn lên tay
                         local hc = char:FindFirstChild("Compass") or pObj.Backpack:FindFirstChild("Compass")
                         
-                        -- Ép nhân vật cầm la bàn lên tay để Server ghi nhận trạng thái Quest đang hoạt động
                         if hc and hc.Parent == pObj.Backpack then
                             hum:EquipTool(hc)
                             task.wait(0.15)
                         end
                         
                         if hc and hc.Parent == char then
-                            -- 🌟 CƠ CHẾ BẺ KHÓA LÕI SAMEVENT:
-                            -- Tấn công giả lập (Spam Remote) gửi các gói dữ liệu xác nhận "Đã tìm thấy cây" về Server
-                            -- Lưu ý: OPL thường yêu cầu gửi kèm dữ liệu tên vật phẩm hoặc lệnh "Claim" / "Check"
-                            pcall(function()
-                                -- Kích hoạt la bàn
-                                hc:Activate()
-                                
-                                -- Gửi các tham số bẻ khóa thông dụng của sự kiện SamEvent OPL
-                                samRemote:FireServer("Claim")
-                                samRemote:FireServer("Reward")
-                                samRemote:FireServer(hc)
-                                samRemote:FireServer("CheckDistance", 0) -- Giả lập khoảng cách đến cây bằng 0 mét
-                            end)
+                            -- Kích hoạt la bàn để ép sinh dữ liệu mục tiêu
+                            hc:Activate()
                             
-                            task.wait(0.2)
+                            -- LẤY DỮ LIỆU TỌA ĐỘ MỤC TIÊU ẨN (CÂY/BOX) BÊN TRONG LA BÀN
+                            -- Quét các ObjectValue thông dụng chứa vị trí mà game thiết lập cho la bàn
+                            local targetValue = hc:FindFirstChild("Target") or hc:FindFirstChild("Location") or hc:FindFirstChild("Tree")
+                            local targetCFrame = nil
                             
-                            -- MẸO PHÁT HIỆN THÀNH CÔNG: Nếu la bàn biến mất tức là Server đã nhận lệnh và cấp Trái Ác Quỷ thành công!
-                            if not char:FindFirstChild("Compass") and not pObj.Backpack:FindFirstChild("Compass") then
-                                _G.AutoFlyToCompassDirection = false
-                                tab3:SetToggle(false) -- Tự động tắt nút khi đã hack thành công
-                                break
+                            if targetValue and targetValue.Value then
+                                -- Trường hợp dữ liệu trả về là một Object (Part/Model) trong Workspace
+                                if typeof(targetValue.Value) == "Instance" then
+                                    if targetValue.Value:IsA("BasePart") then
+                                        targetCFrame = targetValue.Value.CFrame
+                                    elseif targetValue.Value:IsA("Model") then
+                                        targetCFrame = targetValue.Value:GetPivot()
+                                    end
+                                -- Trường hợp dữ liệu trả về thẳng là dữ liệu CFrame hoặc Vector3
+                                elseif typeof(targetValue.Value) == "CFrame" then
+                                    targetCFrame = targetValue.Value
+                                elseif typeof(targetValue.Value) == "Vector3" then
+                                    targetCFrame = CFrame.new(targetValue.Value)
+                                end
                             end
+                            
+                            -- TIẾN HÀNH TELEPORT (TP) NẾU TÌM THẤY TỌA ĐỘ
+                            if targetCFrame then
+                                -- Neo nhân vật tạm thời để tránh bị rơi tự do hoặc lỗi vật lý khi dịch chuyển xa
+                                rootPart.Anchored = true
+                                
+                                -- Dịch chuyển thẳng đến tọa độ mục tiêu (bù thêm 2 block chiều cao để tránh kẹt đất)
+                                rootPart.CFrame = targetCFrame * CFrame.new(0, 2, 0)
+                                task.wait(0.2)
+                                
+                                -- Chạy một vòng tròn nhỏ cực nhanh xung quanh mục tiêu để đảm bảo Hitbox của game nhận diện bạn đã chạm cây
+                                for i = 1, 4 do
+                                    local angle = (i / 4) * math.pi * 2
+                                    rootPart.CFrame = targetCFrame * CFrame.new(math.cos(angle) * 3, 2, math.sin(angle) * 3)
+                                    task.wait(0.05)
+                                end
+                                
+                                rootPart.Anchored = false
+                                task.wait(0.3)
+                                
+                                -- Kiểm tra nếu la bàn biến mất (Chứng tỏ hệ thống game đã đổi la bàn thành Box DF thành công)
+                                if not char:FindFirstChild("Compass") and not pObj.Backpack:FindFirstChild("Compass") then
+                                    print("TP thành công! Đã nhận được Box DF.")
+                                    _G.AutoFlyToCompassDirection = false
+                                    -- Đoạn code giúp tắt trạng thái hiển thị của Nút trên Menu UI Rayfield/Kavo của bạn
+                                    if tab3.SetToggle then 
+                                        tab3:SetToggle(false) 
+                                    end
+                                    break
+                                end
+                            else
+                                -- Phương án dự phòng: Nếu dữ liệu tọa độ bị ẩn trên Client, tự động quét các model cây (Tree) có gắn thẻ đặc biệt gần đó
+                                for _, folder in pairs(workspace:GetChildren()) do
+                                    if folder:IsA("Model") and string.find(string.lower(folder.Name), "tree") then
+                                        local mesh = folder:FindFirstChildWhichIsA("BasePart")
+                                        -- Nếu cây có chứa thuộc tính đổi màu hoặc độ xa hợp lý, tiến hành TP thử
+                                        if mesh and (mesh.Position - rootPart.Position).Magnitude < 3000 then
+                                            -- Bạn có thể bổ sung logic TP thử vào đây nếu cần quét mù (Blind Scan)
+                                        end
+                                    end
+                                end
+                            end
+                            
                         end
                     end
                 end
