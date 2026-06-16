@@ -672,7 +672,7 @@ tab4:CreateToggle({
                                     for _, obj in pairs(workspace:GetDescendants()) do
                                         if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) and (obj:IsDescendantOf(myBobber) or (obj.Parent:IsA("BasePart") and (obj.Parent.Position - myBobber.Position).Magnitude < 6)) then
                                             -- Kiểm tra màu xanh lá đặc trưng cắn câu
-                                            if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints.Value.G > 0.7 and obj.Color.Keypoints.Value.R < 0.4) then
+                                            if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints[1].Value.G > 0.7 and obj.Color.Keypoints[1].Value.R < 0.4) then
                                                 fishBiting = true break
                                             elseif obj:IsA("Sparkles") and (obj.SparkleColor.G > 0.7 and obj.SparkleColor.R < 0.4) then
                                                 fishBiting = true break
@@ -686,21 +686,19 @@ tab4:CreateToggle({
                                             vU:CaptureController()
                                             vU:ClickButton1(Vector2.new(9999, 9999))
                                         end)
-                                        task.wait(0.4) -- Trễ ngắn chờ bảng minigame UI ló lên
+                                        task.wait(1.5) -- Đợi một chút để trò chơi chuyển đổi trạng thái giao diện UI
                                     end
                                     
-                                -- Trường hợp B: CHƯA QUĂNG DÂY (Không có phao) -> Click chuột quăng dây thả cần
+                                -- Trường hợp B: CHƯA QUĂNG DÂY (Không thấy phao) -> Click chuột để QUĂNG CẦN COU
                                 else
-                                    task.wait(0.8) -- Nghỉ giãn cách chu kỳ thông minh tránh spam nút
                                     pcall(function()
                                         vU:CaptureController()
                                         vU:ClickButton1(Vector2.new(9999, 9999))
                                     end)
-                                    task.wait(1.5) -- Chờ dây câu quăng ra hẳn ngoài nước
+                                    task.wait(1.5) -- Chờ hiệu ứng quăng cần kết thúc và phao xuất hiện ổn định
                                 end
                             end
                         end
-                        
                     end
                 end
             end)
