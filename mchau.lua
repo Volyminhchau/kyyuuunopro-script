@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN FIX KHÓA TỌA ĐỘ VĨNH VIỄN] MỖI ĐIỂM SPAWN CHỈ TP 1 LẦN - RESET KHI MẤT COMPASS
+-- 🌟 NÚT 2: [BẢN ĐỒNG BỘ SPAWNER] MỖI VỊ TRÍ CHỈ TP 1 LẦN - KHÔNG DÙNG CHUỘT THẬT - RESET KHI MẤT COMPASS
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -485,18 +485,16 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Bước 1: Quét lưu sẵn danh sách tất cả các điểm con thứ 5 của cây trong MapFolder
+                -- Bước 1: Thu thập và gom toàn bộ linh kiện Spawner từ thư mục Trees của game
                 local allTreeSpawns = {}
                 local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
                 
                 if treesFolder then
                     for _, child in pairs(treesFolder:GetChildren()) do
-                        local childChildren = child:GetChildren()
-                        if #childChildren >= 5 then
-                            local targetSpawn = childChildren[5] -- Khóa chính xác vào phần tử thứ 5
-                            if targetSpawn and (targetSpawn:IsA("BasePart") or targetSpawn:IsA("Model")) then
-                                table.insert(allTreeSpawns, targetSpawn)
-                            end
+                        -- Tìm đúng linh kiện tên là Spawner bên trong mỗi cây theo đường dẫn của bạn
+                        local spawnerPart = child:FindFirstChild("Spawner")
+                        if spawnerPart and (spawnerPart:IsA("BasePart") or spawnerPart:IsA("Model")) then
+                            table.insert(allTreeSpawns, spawnerPart)
                         end
                     end
                 else
@@ -511,12 +509,12 @@ tab3:CreateToggle({
                 safetyPlatform.CanCollide = true
                 safetyPlatform.Name = "SafetyTPPlatform"
                 
-                -- 🔥 BẢNG DANH SÁCH ĐEN LƯU TỌA ĐỘ (Khóa theo vị trí X,Y,Z dạng chuỗi để chống lỗi nhận diện)
+                -- 🔥 BẢNG DANH SÁCH ĐEN KHÓA TỌA ĐỘ VĨNH VIỄN (Chống lặp điểm nhầm)
                 local blacklistedPositions = {}
                 local currentCompassInstance = nil
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.25) -- Giữ nhịp độ quét mượt mà để la bàn kịp xoay hướng thực
+                    task.wait(0.2) -- Giữ nhịp độ quét mượt mà để la bàn kịp xoay hướng thực
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -544,18 +542,18 @@ tab3:CreateToggle({
                             task.wait(0.1) 
                         end
                         
-                        -- KÍCH HOẠT LA BÀN CHẠY NGẦM
+                        -- KÍCH HOẠT LA BÀN CHẠY NGẦM (Không chạm chuột thật)
                         if hc.Parent == char then
                             hc:Activate()
                         end
                         
-                        -- 🔥 CƠ CHẾ RESET BLACKLIST KHI COMPASS TRÊN TAY BIẾN MẤT
+                        -- 🔥 CƠ CHẾ RESET BLACKLIST KHI COMPASS TRÊN TAY BIẾN MẤT / ĐỔI MỚI
                         if currentCompassInstance ~= hc then
                             if currentCompassInstance ~= nil then
-                                print("🔄 Compass cũ đã mất! Tiến hành giải phóng hoàn toàn Danh Sách Đen.")
-                                blacklistedPositions = {} -- Làm trống bộ nhớ để đi săn lượt mới
+                                print("🔄 Phát hiện Compass trên tay đã đổi hoặc mất! Reset sạch Danh Sách Đen.")
+                                blacklistedPositions = {} -- Xóa sạch tọa độ đen cũ để săn lượt mới
                             end
-                            currentCompassInstance = hc -- Cập nhật la bàn hiện tại
+                            currentCompassInstance = hc -- Ghi nhớ la bàn hiện tại
                         end
                         
                         -- Định vị linh kiện Kim Đỏ trong Workspace để lấy hướng đi
@@ -571,35 +569,35 @@ tab3:CreateToggle({
                             -- Lắc nhẹ góc nhân vật để kích thích Server gửi dữ liệu hướng mới
                             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             
-                            -- Đọc hướng thực tế của mũi kim đỏ
-                            local compassDirection = needle.CFrame.LookVector
-                            local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
+                            -- Đọc hướng thực tế từ góc xoay ngang thế giới của kim đỏ
+                            local _, yOrientation, _ = needle.CFrame:ToOrientation()
+                            local moveDirection = Vector3.new(math.sin(yOrientation), 0, math.cos(yOrientation)).Unit
                             
                             local bestNextSpawn = nil
                             local furthestDistance = 0 
                             local minAngle = 0.88 -- Góc ngắm chuẩn hướng kim chỉ
                             
-                            -- Bước 3: Duyệt tìm Điểm con thứ 5 nằm dọc hướng kim chỉ ở khoảng cách xa nhất
+                            -- Bước 3: Duyệt tìm Spawner nằm dọc hướng kim chỉ ở khoảng cách xa nhất
                             for _, spawnPart in pairs(allTreeSpawns) do
                                 if spawnPart and spawnPart.Parent then
-                                    -- Lấy tọa độ thực tế của điểm spawn này
+                                    -- Lấy tọa độ thực tế của khối Spawner này
                                     local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
                                     
-                                    -- 🔥 TẠO KHÓA TỌA ĐỘ: Chuyển tọa độ thành chuỗi văn bản dạng "X,Y,Z" làm tròn để đối chiếu
+                                    -- 🔥 MÃ HÓA TỌA ĐỘ VỊ TRÍ: Chuyển tọa độ thành chuỗi "X,Y,Z" làm tròn để đối chiếu chính xác
                                     local posKey = math.floor(spawnPos.X) .. "," .. math.floor(spawnPos.Y) .. "," .. math.floor(spawnPos.Z)
                                     
-                                    -- ĐIỀU KIỆN KHÓA: Nếu tọa độ này CHƯA từng được đi qua thì mới xử lý
+                                    -- ĐIỀU KIỆN KHÓA CHẶT: Nếu vị trí Spawner này CHƯA từng được đi qua thì mới xử lý
                                     if not blacklistedPositions[posKey] then
                                         local vectorToSpawn = (spawnPos - rootPart.Position)
                                         local distance = vectorToSpawn.Magnitude
                                         
-                                        -- Chỉ xét các điểm spawn ở khoảng cách phía trước mặt (>50 block)
+                                        -- Xét các điểm Spawner ở phía trước mặt (Khoảng cách > 50 block)
                                         if distance > 50 and distance < 35000 then 
                                             local directionToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
                                             local dotProduct = moveDirection:Dot(directionToSpawn)
                                             
                                             if dotProduct > minAngle then
-                                                -- Ưu tiên chọn điểm spawn xa nhất dọc đường kim chỉ để tối ưu tốc độ nhảy
+                                                -- Chọn điểm Spawner xa nhất dọc đường kim chỉ để bay tịnh tiến siêu tốc
                                                 if distance > furthestDistance then
                                                     furthestDistance = distance
                                                     bestNextSpawn = spawnPart
@@ -614,17 +612,17 @@ tab3:CreateToggle({
                             if bestNextSpawn then
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
                                 
-                                -- 🔥 TIẾN HÀNH ĐƯA TỌA ĐỘ VỪA CHỌN VÀO DANH SÁCH ĐEN KHÓA VĨNH VIỄN
+                                -- 🔥 KHÓA CỨNG VĨ NHẤT: Đưa ngay tọa độ vừa chọn vào danh sách đen để KHÔNG bao giờ quay lại
                                 local targetKey = math.floor(targetPos.X) .. "," .. math.floor(targetPos.Y) .. "," .. math.floor(targetPos.Z)
                                 blacklistedPositions[targetKey] = true
                                 
-                                print("⚡ TP ĐÚNG 1 LẦN -> Khóa cứng tọa độ spawn này: [" .. targetKey .. "]")
+                                print("⚡ TP CHUẨN 1 LẦN -> Khóa cứng Spawner: [" .. targetKey .. "]")
                                 
-                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm điểm spawn
+                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             else
-                                -- Kích thích nhẹ tọa độ nếu kim chưa kịp đổi hướng để tránh bị đơ mạng
+                                -- Nhấp nhô nhẹ tọa độ nếu kim đang xoay dở để tránh đơ mạng
                                 rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         end
@@ -635,7 +633,6 @@ tab3:CreateToggle({
         end
     end
 })
-
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
