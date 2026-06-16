@@ -434,7 +434,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - DỊCH CHUYỂN TỨC THỜI CHỚP MẮT (INSTANT TP)
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN SỬA LỖI ĐỊNH VỊ CHUẨN OPL 100%
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 
@@ -475,7 +475,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL + DỊCH CHUYỂN TỨC THỜI (INSTANT TELEPORT)
+-- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL + DỊCH CHUYỂN CHUẨN ĐÍCH 
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -487,7 +487,7 @@ tab3:CreateToggle({
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.5) -- Nhịp delay an toàn cho Instant TP chống tràn bộ nhớ dữ liệu
+                    task.wait(0.5) -- Nhịp delay an toàn chống quét trùng lặp
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -502,7 +502,7 @@ tab3:CreateToggle({
                                 if string.find(itemName, "comp") or string.find(itemName, "la ban") then
                                     hum:EquipTool(item)
                                     hc = item
-                                    task.wait(0.1)
+                                    task.wait(0.2)
                                     break
                                 end
                             end
@@ -511,56 +511,67 @@ tab3:CreateToggle({
                         -- Xử lý dịch chuyển khi đã cầm chắc la bàn trên tay
                         if hc then
                             pcall(function() hc:Activate() end)
-                            task.wait(0.1) -- Đợi dữ liệu vị trí đồng bộ
-                            
-                            -- Mở khóa chân ban đầu để giải phóng nhân vật
-                            mr.Anchored = false
-                            for _, p in pairs(char:GetChildren()) do
-                                if p:IsA("BasePart") then p.Anchored = false end
-                            end
+                            task.wait(0.15) -- Đợi game đồng bộ dữ liệu đích
                             
                             local treasurePosition = nil
                             
-                            -- Hướng A: Quét Model rương/cây chứa chỉ số mục tiêu trùng khớp (Chuẩn OP Final)
-                            for _, obj in pairs(workspace:GetChildren()) do
-                                if obj:IsA("Model") and (string.find(string.lower(obj.Name), "island") or string.find(string.lower(obj.Name), "tree") or string.find(string.lower(obj.Name), "chest")) then
-                                    local isTarget = obj:FindFirstChild("TargetValue") or obj:FindFirstChild("CompassTarget")
-                                    if isTarget then
-                                        treasurePosition = obj:GetPivot().Position break
-                                    end
+                            -- ĐOẠN ĐỊNH VỊ MỚI DÀNH RIÊNG CHO OPL:
+                            -- Hướng A: Đọc ObjectValue/StringValue lưu tên hoặc vị trí cây đích nằm TRONG la bàn
+                            for _, child in pairs(hc:GetChildren()) do
+                                if child:IsA("ObjectValue") and child.Value and (child.Value:IsA("BasePart") or child.Value:IsA("Model")) then
+                                    treasurePosition = child.Value:GetPivot().Position
+                                    break
+                                elseif child:IsA("StringValue") and workspace:FindFirstChild(child.Value, true) then
+                                    local targetObj = workspace:FindFirstChild(child.Value, true)
+                                    treasurePosition = targetObj:GetPivot().Position
+                                    break
                                 end
                             end
                             
-                            -- Hướng B: Quét tia Beam ngầm nối từ la bàn ra thế giới
+                            -- Hướng B: Quét thư mục Quest của người chơi xem game có nhét tọa độ mục tiêu vào đó không
                             if not treasurePosition then
-                                for _, child in pairs(workspace:GetDescendants()) do
-                                    if child:IsA("Beam") and (child.Attachment0 and child.Attachment0:IsAncestorOf(char) or child.Attachment1 and child.Attachment1:IsAncestorOf(char)) then
-                                        local targetAttachment = child.Attachment1 or child.Attachment0
-                                        if targetAttachment and targetAttachment.Parent then
-                                            treasurePosition = targetAttachment.Parent.Position break
+                                local questFolder = pObj:FindFirstChild("Quests") or pObj:FindFirstChild("QuestReceived")
+                                if questFolder then
+                                    for _, qValue in pairs(questFolder:GetDescendants()) do
+                                        if qValue:IsA("Vector3Value") or qValue:IsA("CFrameValue") then
+                                            treasurePosition = (qValue:IsA("Vector3Value") and qValue.Value) or qValue.Value.Position
+                                            break
                                         end
                                     end
                                 end
                             end
                             
-                            -- Hướng C (Dự phòng): Nhảy chặng tức thời 3000 Studs theo Vector phẳng của kim chỉ nam
+                            -- Hướng C (Dự phòng tối cao của OPL): Quét thẳng các cây chứa Trái Ác Quỷ đang mở trên Workspace
                             if not treasurePosition then
-                                local needle = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle")
-                                if needle then
-                                    local lookDir = needle.CFrame.LookVector
-                                    local flatDirection = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
-                                    treasurePosition = mr.Position + (flatDirection * 3000)
+                                for _, obj in pairs(workspace:GetDescendants()) do
+                                    -- Tìm các Model cây có đặc điểm chứa Quả hoặc Đốm Sáng đặc biệt của Quest Compass
+                                    if obj:IsA("Model") and (string.find(string.lower(obj.Name), "fruittree") or string.find(string.lower(obj.Name), "legendarytree") or obj:FindFirstChild("Fruit")) then
+                                        treasurePosition = obj:GetPivot().Position
+                                        break
+                                    end
                                 end
                             end
                             
-                            -- 🌟 THỰC THI DỊCH CHUYỂN TỨC THỜI (INSTANT TP):
+                            -- 🌟 THỰC THI ĐẾN ĐÚNG ĐÍCH (TUYỆT ĐỐI KHÔNG DÙNG VECTOR KIM MÙ)
                             if treasurePosition then
-                                -- Dịch chuyển chớp mắt đến vị trí cao hơn mục tiêu 3 block để tránh kẹt đất
+                                -- Mở khóa chân trước khi nhảy tọa độ
+                                mr.Anchored = false
+                                for _, p in pairs(char:GetChildren()) do
+                                    if p:IsA("BasePart") then p.Anchored = false end
+                                end
+                                
+                                -- Di chuyển chớp mắt đến vị trí gốc cây (cao hơn gốc cây 3 block để không lọt xuống đất)
                                 mr.CFrame = CFrame.new(treasurePosition.X, treasurePosition.Y + 3, treasurePosition.Z)
                                 
-                                -- [QUAN TRỌNG] Khóa cứng nhân vật 0.2 giây tại đích để vượt Anti-Cheat và nhặt vật phẩm công khai
+                                -- Khóa chân 0.5 giây để phía Server của game kịp ghi nhận bạn đã tới nơi và kích hoạt nhặt trái cây
                                 mr.Anchored = true
-                                task.wait(0.2)
+                                
+                                -- Giả lập nhấp chuột liên tục kích hoạt la bàn tại gốc cây để hoàn thành Quest
+                                for i = 1, 5 do
+                                    pcall(function() hc:Activate() end)
+                                    task.wait(0.1)
+                                end
+                                
                                 mr.Anchored = false
                             end
                         end
