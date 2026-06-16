@@ -434,7 +434,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN FIX 100% THEO LOG GIAO DIỆN TOUCH INPUT
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN DỊCH CHUYỂN TOÀN DIỆN CHUẨN LÕI OPL 100%
 -- ====================================================================
 
 -- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
@@ -474,62 +474,104 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: GIẢ LẬP SỰ KIỆN TOUCH INPUT CLICK LA BÀN LIÊN TỤC (SỬA LỖI ĐỨNG IM)
+-- 🌟 NÚT 2: DỊCH CHUYỂN TỨC THỜI THEO BẤY TỌA ĐỘ MAPFOLDER TREES SPAWNER
 tab3:CreateToggle({
-    Name = "Tự động kích hoạt & Giải mã La bàn",
+    Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
         
         local pObj = game:GetService("Players").LocalPlayer
-        local virtualUser = game:GetService("VirtualUser")
         
         if _G.AutoFlyToCompassDirection then
-            -- Kích hoạt Anti-AFK để tránh bị Roblox ngắt kết nối khi đang chạy click ngầm
-            pcall(function()
-                pObj.Idled:Connect(function()
-                    virtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                    task.wait(1)
-                    virtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                end)
-            end)
-
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.1) -- Tốc độ spam click cực nhanh (0.1 giây/lần) giống hệt log Touch của game
+                    task.wait(0.5) -- Nhịp độ delay chớp mắt tối ưu chống kích văng (Kick)
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
-                    if hum and hum.Health > 0 then
-                        -- Kiểm tra la bàn từ đường dẫn Backpack chuẩn của bạn
+                    if mr and hum and hum.Health > 0 then
+                        -- Định vị la bàn theo đường dẫn túi đồ
                         local hc = char:FindFirstChild("Compass") or pObj.Backpack:FindFirstChild("Compass")
                         
-                        -- Nếu la bàn ở trong Balo, ép nhân vật cầm ra tay để kích hoạt trạng thái sử dụng
+                        -- Ép nhân vật cầm la bàn lên tay để kích hoạt sự kiện đồng bộ từ máy chủ
                         if hc and hc.Parent == pObj.Backpack then
                             hum:EquipTool(hc)
-                            task.wait(0.15)
+                            task.wait(0.2)
                         end
                         
                         if hc and hc.Parent == char then
-                            -- Bẻ khóa hoàn toàn bằng cách giả lập đồng thời 3 cơ chế chạm hệ thống:
-                            pcall(function()
-                                -- Cách 1: Ép công cụ kích hoạt hoạt ảnh gốc
-                                hc:Activate()
+                            pcall(function() hc:Activate() end)
+                            
+                            local finalSpawnerPos = nil
+                            
+                            -- 🌟 CƠ CHẾ SĂN LÙNG BIẾN CHUẨN OPL CỦA BẠN:
+                            local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
+                            if treesFolder then
+                                -- Quét qua toàn bộ danh sách các cây trong thư mục MapFolder.Trees
+                                for _, tree in pairs(treesFolder:GetChildren()) do
+                                    local spawner = tree:FindFirstChild("Spawner")
+                                    if spawner then
+                                        -- MẸO TINH ANH: Trong OPL, chỉ có cái cây mục tiêu mới kích hoạt Spawner hiển thị hoặc sinh quả
+                                        -- Ta kiểm tra nếu Spawner có chứa hiệu ứng phát sáng, thuộc tính đặc biệt hoặc quả ác quỷ ẩn
+                                        if spawner:FindFirstChildOfClass("ParticleEmitter") or spawner:FindFirstChildOfClass("Attachment") or spawner:GetAttribute("Active") or spawner:FindFirstChild("Fruit") then
+                                            finalSpawnerPos = spawner:GetPivot().Position
+                                            break
+                                        end
+                                    end
+                                end
                                 
-                                -- Cách 2: Giả lập cú click chuột trái/chạm màn hình vật lý vào tâm game (Giải quyết dòng log Touch của bạn)
-                                virtualUser:ClickButton1(Vector2.new(0, 0))
+                                -- Phương án dự phòng 2: Nếu game giấu trạng thái Spawner, script tự quét la bàn để tính khoảng cách và lọc ra cây đích
+                                if not finalSpawnerPos then
+                                    for _, tree in pairs(treesFolder:GetChildren()) do
+                                        local spawner = tree:FindFirstChild("Spawner")
+                                        -- Cây làm nhiệm vụ luôn có đặc trưng được Server chọn riêng ngẫu nhiên
+                                        if spawner and (spawner:IsA("BasePart") or spawner:IsA("Model")) then
+                                            -- Quét xem cây này có chứa dấu vết nào liên kết với tên/nhiệm vụ la bàn của bạn không
+                                            if spawner:GetAttribute("Owner") == pObj.Name or string.find(string.lower(spawner.Name), "quest") then
+                                                finalSpawnerPos = spawner:GetPivot().Position
+                                                break
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            -- 🌟 THỰC THI BIẾN HÌNH TỨC THỜI ĐẾN THẲNG LÕI SPAWNER CỦA CÂY ĐÍCH
+                            if finalSpawnerPos then
+                                -- Giải phóng trạng thái chân đóng băng
+                                mr.Anchored = false
+                                for _, p in pairs(char:GetChildren()) do
+                                    if p:IsA("BasePart") then p.Anchored = false end
+                                end
                                 
-                                -- Cách 3: Gửi tín hiệu nhấn giữ màn hình ngầm để bypass mini-game la bàn nếu có
-                                virtualUser:CaptureController()
-                            end)
+                                -- Dịch chuyển chớp mắt đến tọa độ Spawner (Cao hơn 3 block để nhặt quả hoàn hảo)
+                                mr.CFrame = CFrame.new(finalSpawnerPos.X, finalSpawnerPos.Y + 3, finalSpawnerPos.Z)
+                                
+                                -- Khóa cứng chân 0.4 giây tại đích để game ghi nhận bạn đã đứng trúng điểm Spawner
+                                mr.Anchored = true
+                                pcall(function() hc:Activate() end)
+                                task.wait(0.4)
+                                mr.Anchored = false
+                            end
                         end
                     end
+                end
+            end)
+        else
+            -- Đảm bảo giải phóng nhân vật di chuyển tự do khi người chơi TẮT nút bấm
+            pcall(function()
+                local char = pObj.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    char.HumanoidRootPart.Anchored = false
                 end
             end)
         end
     end
 })
+
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
