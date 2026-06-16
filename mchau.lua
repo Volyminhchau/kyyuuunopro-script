@@ -589,11 +589,11 @@ tab3:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - CHUẨN HÓA THEO MENU GAME
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ONE PIECE FINAL EDITION
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing = false
-_G.SelectedRod = "Wood Rod" -- Đổi lại tên chuẩn 100% theo ảnh của bạn
+_G.SelectedRod = "Wood Rod" -- Tên chuẩn 100% theo bảng Utilities của bạn
 
 local tab4 = MainMenu:CreateTab("Fishing 🎣")
 
@@ -621,7 +621,7 @@ tab4:CreateToggle({
             
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.04) -- Tốc độ quét tối ưu chống lag
+                    task.wait(0.04) -- Tốc độ phản xạ tối ưu nhất
                     
                     local char = pObj.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
@@ -630,51 +630,44 @@ tab4:CreateToggle({
                     if mr and hum and hum.Health > 0 then
                         local pGui = pObj:FindFirstChild("PlayerGui")
                         local isMinigameActive = false
-                        local whiteTargetGui = nil
+                        local bubbleTargetGui = nil
                         
-                        -- 🌟 BƯỚC 1: QUÉT TRẠNG THÁI MINIGAME KHUNG Ô TRẮNG
+                        -- 🌟 BƯỚC 1: DÒ TÌM MINIGAME BONG BÓNG VÒNG TRÒN CỦA ONE PIECE FINAL
                         if pGui then
                             for _, gui in pairs(pGui:GetDescendants()) do
-                                if gui:IsA("TextLabel") and (string.find(string.lower(gui.Text), "pull") or string.find(string.lower(gui.Text), "medium") or string.find(string.lower(gui.Text), "easy") or string.find(string.lower(gui.Text), "fish")) then
-                                    if gui.IsVisible or (gui.AbsoluteSize.X > 0 and gui.AbsoluteWindowPosition.X > 0) then
+                                -- Quét các nút tròn xuất hiện trên màn hình yêu cầu nhấp chuột để giữ cá
+                                if (gui:IsA("ImageButton") or gui:IsA("TextButton") or gui:IsA("Frame")) and gui.Visible and gui.AbsoluteSize.X > 0 then
+                                    local nameLower = string.lower(gui.Name)
+                                    -- Nhận diện các từ khóa minigame câu cá của game
+                                    if string.find(nameLower, "shake") or string.find(nameLower, "click") or string.find(nameLower, "bubble") or string.find(nameLower, "fish") or string.find(nameLower, "reel") then
                                         isMinigameActive = true
-                                    end
-                                end
-                                
-                                if isMinigameActive and (gui:IsA("ImageLabel") or gui:IsA("Frame") or gui:IsA("ImageButton")) and gui.Visible and gui.AbsoluteSize.X > 0 then
-                                    local gName = string.lower(gui.Name)
-                                    if string.find(gName, "fish") or string.find(gName, "slot") or string.find(gName, "button") or string.find(gName, "highlight") then
-                                        if gui.BackgroundColor3.R > 0.9 and gui.BackgroundColor3.G > 0.9 and gui.BackgroundColor3.B > 0.9 then
-                                            whiteTargetGui = gui break
-                                        end
-                                        local stroke = gui:FindFirstChildOfClass("UIStroke")
-                                        if stroke and stroke.Color.R > 0.9 and stroke.Color.G > 0.9 then
-                                            whiteTargetGui = gui break
+                                        if gui:IsA("ImageButton") or gui:IsA("TextButton") then
+                                            bubbleTargetGui = gui break
                                         end
                                     end
                                 end
                             end
                         end
                         
-                        -- 🌟 BƯỚC 2: TỰ ĐỘNG GIẢI MINIGAME KHI PHÁT HIỆN
-                        if isMinigameActive and whiteTargetGui then
+                        -- 🌟 BƯỚC 2: TỰ ĐỘNG CLICK VÀO VÒNG TRÒN MINIGAME ĐỂ KÉO CÁ
+                        if isMinigameActive and bubbleTargetGui then
                             pcall(function()
-                                local posX = whiteTargetGui.AbsolutePosition.X + (whiteTargetGui.AbsoluteSize.X / 2)
-                                local posY = whiteTargetGui.AbsolutePosition.Y + (whiteTargetGui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
+                                local posX = bubbleTargetGui.AbsolutePosition.X + (bubbleTargetGui.AbsoluteSize.X / 2)
+                                local posY = bubbleTargetGui.AbsolutePosition.Y + (bubbleTargetGui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
                                 
                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
-                                task.wait(0.02)
+                                task.wait(0.01)
                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
-                                
-                                if whiteTargetGui:IsA("ImageButton") or whiteTargetGui:IsA("TextButton") then
-                                    whiteTargetGui:Activate()
-                                end
+                                bubbleTargetGui:Activate()
                             end)
-                            task.wait(0.05)
+                            task.wait(0.04)
                         
-                        -- 🌟 BƯỚC 3: LOGIC QUĂNG DÂY VÀ CANH GIẬT CẦN TỰ ĐỘNG KHÔNG PHỤ THUỘC BACKPACK
+                        -- 🌟 BƯỚC 3: XỬ LÝ QUĂNG CẦN & GIẬT CẦN NGẦM KHÔNG PHỤ THUỘC BALO (BACKPACK)
                         else
-                            -- Dò tìm thực thể phao câu của bạn ở Workspace gần nhân vật
+                            -- SỬA LỖI ĐỔI CẦN: Tự động kích hoạt Click Chuột trái để gọi chiếc cần bạn đã bấm Equipped sẵn trong game ra tay
+                            local holdingRod = char:FindFirstChildOfClass("Tool")
+                            
+                            -- Dò tìm vật thể phao/mồi câu của bạn ở Workspace
                             local myBobber = nil
                             for _, b in pairs(workspace:GetDescendants()) do
                                 if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure")) then
@@ -684,9 +677,10 @@ tab4:CreateToggle({
                                 end
                             end
                             
-                            -- Trường hợp A: ĐÃ QUĂNG DÂY (Có phao dưới nước) -> Đợi cá cắn ngầm qua hệ thống vật lý phao
+                            -- Trường hợp A: ĐÃ QUĂNG DÂY (Phao dưới nước) -> Theo dõi xung động để giật
                             if myBobber then
                                 local fishBiting = false
+                                -- Khi cá đớp mồi trong One Piece Final, phao sẽ rung lắc mạnh hoặc lặn hẳn xuống
                                 if myBobber.AssemblyLinearVelocity.Y < -2.5 or math.abs(myBobber.AssemblyLinearVelocity.Y) > 4 then
                                     fishBiting = true
                                 end
@@ -694,22 +688,22 @@ tab4:CreateToggle({
                                     fishBiting = true
                                 end
                                 
-                                -- Nếu đúng là cá cắn câu -> Click chuột trái để Giật cần mở minigame!
+                                -- Cá cắn -> Click Chuột Trái phát đầu tiên để lôi cần kích hoạt giai đoạn nổ bong bóng minigame!
                                 if fishBiting then
                                     pcall(function()
                                         vU:CaptureController()
                                         vU:ClickButton1(Vector2.new(9999, 9999))
                                     end)
-                                    task.wait(1.2) -- Đợi giao diện UI minigame hiện lên ổn định
+                                    task.wait(1.0)
                                 end
                                 
-                            -- Trường hợp B: CHƯA QUĂNG DÂY (Không thấy phao) -> Click chuột tự quăng dây câu
+                            -- Trường hợp B: CHƯA QUĂNG DÂY (Không thấy phao) -> Click Chuột Trái quăng dây câu xuống biển
                             else
                                 pcall(function()
                                     vU:CaptureController()
                                     vU:ClickButton1(Vector2.new(9999, 9999))
                                 end)
-                                task.wait(1.8) -- Thời gian delay an toàn để phao rơi xuống nước ổn định
+                                task.wait(1.8) -- Delay chờ dây quăng ra ổn định vị trí trên mặt nước
                             end
                         end
                     end
