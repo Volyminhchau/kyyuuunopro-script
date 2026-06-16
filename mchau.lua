@@ -434,7 +434,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - CƯỠNG ÉP CẦM TOOL BẰNG HUMANOID (CHẠY 100%)
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - PHONG CÁCH CHUẨN ONE PIECE FINAL
 -- ====================================================================
 local lastD = Vector3.new(0, 0, 0)
 
@@ -475,7 +475,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL HỢP LỆ + BẺ KHÓA DỊCH CHUYỂN TỨC THỜI
+-- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL + DÒ VỊ TRÍ PHONG CÁCH OP FINAL (DÙNG TWEEN MƯỢT TRÁNH KICK)
 tab3:CreateToggle({
     Name = "Bay theo hướng la bàn chỉ",
     CurrentValue = false,
@@ -483,27 +483,27 @@ tab3:CreateToggle({
         _G.AutoFlyToCompassDirection = v
         
         local pObj = game:GetService("Players").LocalPlayer
-        local vU = game:GetService("VirtualUser")
+        local tweenService = game:GetService("TweenService")
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.3) -- Tốc độ quét balo liên tục chống lag
+                    task.wait(0.3) -- Nhịp quét balo tối ưu chống giật lag
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- Kiểm tra xem trên tay đã cầm la bàn chưa
+                        -- Tự động tìm kiểm tra Compass trong người
                         local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass")
                         
-                        -- 🌟 NẾU CHƯA CẦM: Dùng lệnh hệ thống ép nhân vật tự động cầm la bàn ra tay hợp lệ
+                        -- Cưỡng ép nhân vật cầm la bàn ra tay
                         if not hc then
                             for _, item in pairs(pObj.Backpack:GetChildren()) do
                                 local itemName = string.lower(item.Name)
                                 if string.find(itemName, "comp") or string.find(itemName, "la ban") then
-                                    hum:EquipTool(item) -- Lệnh gọi Tool chuẩn của Roblox chống kẹt
+                                    hum:EquipTool(item)
                                     hc = item
                                     task.wait(0.1)
                                     break
@@ -511,89 +511,110 @@ tab3:CreateToggle({
                             end
                         end
                         
-                        -- Tiến hành xử lý dịch chuyển khi đã cầm la bàn trên tay
+                        -- Xử lý tìm tọa độ khi đã cầm chắc la bàn trên tay
                         if hc then
-                            pcall(function() hc:Activate() end) -- Kích hoạt la bàn
-                            task.wait(0.15) -- Chờ game nạp vị trí rương ẩn
+                            pcall(function() hc:Activate() end)
+                            task.wait(0.15)
                             
-                            -- Khử hoàn toàn lỗi đóng băng chân của cây la bàn game
+                            -- Gỡ bỏ hoàn toàn tình trạng đóng băng chân do thuộc tính game gây ra
                             mr.Anchored = false
                             for _, p in pairs(char:GetChildren()) do
                                 if p:IsA("BasePart") then p.Anchored = false end
                             end
                             
-                            -- 🌟 MẮT THẦN DÒ TÌM TOẠ ĐỘ THỰC TẾ TRONG LÕI GAME:
                             local treasurePosition = nil
                             
-                            -- Hướng A: Dò tìm tia định vị ngầm (Beam)
-                            for _, child in pairs(workspace:GetDescendants()) do
-                                if child:IsA("Beam") and (child.Attachment0 and child.Attachment0:IsAncestorOf(char) or child.Attachment1 and child.Attachment1:IsAncestorOf(char)) then
-                                    local targetAttachment = child.Attachment1 or child.Attachment0
-                                    if targetAttachment and targetAttachment.Parent then
-                                        treasurePosition = targetAttachment.Parent.Position break
+                            -- ĐOẠN FIX MỚI: Quét lõi game lấy các Object đích (Đặc trưng dòng game One Piece Final)
+                            -- Ưu tiên dò tìm thẳng các Model được gán mục tiêu ẩn
+                            for _, obj in pairs(workspace:GetChildren()) do
+                                if obj:IsA("Model") and (string.find(string.lower(obj.Name), "island") or string.find(string.lower(obj.Name), "tree") or string.find(string.lower(obj.Name), "chest")) then
+                                    -- Kiểm tra nếu vật thể có các chỉ số Value được đồng bộ với la bàn của bạn
+                                    local isTarget = obj:FindFirstChild("TargetValue") or obj:FindFirstChild("CompassTarget")
+                                    if isTarget then
+                                        treasurePosition = obj:GetPivot().Position break
                                     end
                                 end
                             end
                             
-                            -- Hướng B: Dò tìm điểm đánh dấu Waypoint hoặc dữ liệu vị trí ẩn
+                            -- Hướng B: Quét cấu trúc tia định hướng (Beam/Attachment) nối từ la bàn ra thế giới
                             if not treasurePosition then
-                                for _, obj in pairs(workspace:GetChildren()) do
-                                    local lowerObj = string.lower(obj.Name)
-                                    if string.find(lowerObj, "waypoint") or string.find(lowerObj, "destination") or string.find(lowerObj, "target") or string.find(lowerObj, "chest") then
-                                        if obj:IsA("BasePart") then treasurePosition = obj.Position break
-                                        elseif obj:IsA("Vector3Value") then treasurePosition = obj.Value break end
+                                for _, child in pairs(workspace:GetDescendants()) do
+                                    if child:IsA("Beam") and (child.Attachment0 and child.Attachment0:IsAncestorOf(char) or child.Attachment1 and child.Attachment1:IsAncestorOf(char)) then
+                                        local targetAttachment = child.Attachment1 or child.Attachment0
+                                        if targetAttachment and targetAttachment.Parent then
+                                            treasurePosition = targetAttachment.Parent.Position break
+                                        end
                                     end
                                 end
                             end
                             
-                            -- Hướng C: Đọc hướng kim đỏ la bàn phẳng làm phương án dự phòng
+                            -- Hướng C (Dự phòng tối cao): Giải toán LookVector từ cây Kim la bàn (Không dùng Raycast mù)
                             if not treasurePosition then
-                                local nd = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle")
-                                local flyDir = nd and nd.CFrame.LookVector or mr.CFrame.LookVector
-                                local flatDirection = Vector3.new(flyDir.X, 0, flyDir.Z).Unit
-                                
-                                local raycastParams = RaycastParams.new()
-                                raycastParams.FilterFolder = {char, workspace.Camera}
-                                raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-                                local raycastResult = workspace:Raycast(mr.Position + Vector3.new(0, 5, 0), flatDirection * 30000, raycastParams)
-                                
-                                if raycastResult and raycastResult.Position then
-                                    treasurePosition = raycastResult.Position
-                                else
-                                    -- Nhảy chặng phẳng 3500 studs theo hướng kim la bàn chỉ mặt đất
-                                    treasurePosition = mr.Position + (flatDirection * 3500)
+                                local needle = hc:FindFirstChild("Needle") or hc:FindFirstChild("Pointer") or hc:FindFirstChild("Arrow") or hc:FindFirstChild("Handle")
+                                if needle then
+                                    -- Lấy hướng xoay mặt phẳng nằm ngang (X, Z) của kim chỉ nam để triệt tiêu việc cắm đầu xuống đất
+                                    local lookDir = needle.CFrame.LookVector
+                                    local flatDirection = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
+                                    -- Thiết lập mục tiêu nhảy chặng mượt phía trước theo hướng kim chỉ
+                                    treasurePosition = mr.Position + (flatDirection * 1500)
                                 end
                             end
                             
-                            -- 🌟 THỰC HIỆN DỊCH CHUYỂN TỨC THỜI CHỚP MẮT (INSTANT TP):
+                            -- 🌟 THỰC HIỆN DI CHUYỂN PHONG CÁCH TWEEN MƯỢT (CHỐNG KICK ANTI-CHEAT):
                             if treasurePosition then
-                                mr.Anchored = true -- Khóa trọng lực tạm thời tránh lọt map
+                                -- Tính toán khoảng cách để thiết lập tốc độ Tween hợp lý (Tránh đi quá nhanh bị kích)
+                                local distance = (mr.Position - treasurePosition).Magnitude
+                                local speed = 350 -- Đơn vị studs trên giây (Tốc độ an toàn cao nhất của OP Final)
+                                local tweenTime = distance / speed
                                 
-                                local targetCFrame = CFrame.new(Vector3.new(treasurePosition.X, treasurePosition.Y + 2.5, treasurePosition.Z), Vector3.new(treasurePosition.X, treasurePosition.Y + 2.5, treasurePosition.Z) + mr.CFrame.LookVector)
-                                mr.CFrame = targetCFrame
-                                task.wait(0.3) -- Chờ nạp xong địa hình đảo mượt mà
-                                mr.Anchored = false
+                                if tweenTime < 0.1 then tweenTime = 0.1 end
                                 
-                                -- Đập chuột ảo liên hoàn đào rương báu x30 lần
-                                for i = 1, 30 do
-                                    task.wait(0.04)
-                                    pcall(function() vU:CaptureController() vU:ClickButton1(Vector2.new(9999, 9999)) end)
+                                -- Khóa trọng lực để tránh nhân vật bị rơi tự do xuống biển trong lúc đang bay
+                                local bv = mr:FindFirstChild("CompassVelocity") or Instance.new("BodyVelocity")
+                                bv.Name = "CompassVelocity"
+                                bv.Velocity = Vector3.new(0, 0, 0)
+                                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                                bv.Parent = mr
+                                
+                                local targetCFrame = CFrame.new(Vector3.new(treasurePosition.X, treasurePosition.Y + 4, treasurePosition.Z))
+                                local tweenInfo = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear)
+                                local tween = tweenService:Create(mr, tweenInfo, {CFrame = targetCFrame})
+                                
+                                tween:Play()
+                                tween.Completed:Wait() -- Chờ nhân vật bay tới điểm đích thành công
+                                
+                                -- Xóa bỏ dòng giữ trọng lực khi đã đến đích an toàn
+                                if mr:FindFirstChild("CompassVelocity") then
+                                    mr.CompassVelocity:Destroy()
                                 end
-                                task.wait(0.5) -- Chờ hốt quà xong xuôi để vòng lặp tiếp tục quét la bàn mới
+                                task.wait(0.2)
                             end
                         end
+                    end
+                end
+            end)
+        else
+            -- Giải phóng hoàn toàn nhân vật và dọn dẹp thuộc tính bay khi người chơi TẮT nút
+            pcall(function()
+                local char = pObj.Character
+                local mr = char and char:FindFirstChild("HumanoidRootPart")
+                if mr then
+                    mr.Anchored = false
+                    if mr:FindFirstChild("CompassVelocity") then
+                        mr.CompassVelocity:Destroy()
                     end
                 end
             end)
         end
     end
 })
+
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ONE PIECE FINAL EDITION
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing = false
-_G.SelectedRod = "Wood Rod" -- Tên chuẩn 100% theo bảng Utilities của bạn
+_G.SelectedRod = "Wood Rod"
 
 local tab4 = MainMenu:CreateTab("Fishing 🎣")
 
@@ -621,7 +642,7 @@ tab4:CreateToggle({
             
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.04) -- Tốc độ phản xạ tối ưu nhất
+                    task.wait(0.02) -- Đẩy tốc độ phản xạ lên siêu tốc để bấm ô Highlight ngay khi đổi
                     
                     local char = pObj.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
@@ -630,80 +651,111 @@ tab4:CreateToggle({
                     if mr and hum and hum.Health > 0 then
                         local pGui = pObj:FindFirstChild("PlayerGui")
                         local isMinigameActive = false
-                        local bubbleTargetGui = nil
+                        local highlightedTargetGui = nil
                         
-                        -- 🌟 BƯỚC 1: DÒ TÌM MINIGAME BONG BÓNG VÒNG TRÒN CỦA ONE PIECE FINAL
+                        -- 🌟 BƯỚC 1: DÒ TÌM BẢNG MINIGAME "PULL IT!" ĐANG HIỂN THỊ TRÊN MÀN HÌNH
                         if pGui then
                             for _, gui in pairs(pGui:GetDescendants()) do
-                                -- Quét các nút tròn xuất hiện trên màn hình yêu cầu nhấp chuột để giữ cá
-                                if (gui:IsA("ImageButton") or gui:IsA("TextButton") or gui:IsA("Frame")) and gui.Visible and gui.AbsoluteSize.X > 0 then
-                                    local nameLower = string.lower(gui.Name)
-                                    -- Nhận diện các từ khóa minigame câu cá của game
-                                    if string.find(nameLower, "shake") or string.find(nameLower, "click") or string.find(nameLower, "bubble") or string.find(nameLower, "fish") or string.find(nameLower, "reel") then
+                                -- Kiểm tra tiêu đề chữ PULL IT! xuất hiện
+                                if gui:IsA("TextLabel") and (string.find(string.lower(gui.Text), "pull") or string.find(string.lower(gui.Text), "hard") or string.find(string.lower(gui.Text), "medium") or string.find(string.lower(gui.Text), "easy")) then
+                                    if gui.IsVisible or (gui.AbsoluteSize.X > 0 and gui.AbsoluteWindowPosition.X > 0) then
                                         isMinigameActive = true
-                                        if gui:IsA("ImageButton") or gui:IsA("TextButton") then
-                                            bubbleTargetGui = gui break
+                                    end
+                                end
+                                
+                                -- 🌟 BƯỚC 2: DÒ CHÍNH XÁC Ô ĐANG ĐƯỢC CHỌN (HIGHLIGHTED) TRONG 5 Ô CON VẬT
+                                if isMinigameActive and (gui:IsA("ImageButton") or gui:IsA("TextButton") or gui:IsA("Frame") or gui:IsA("ImageLabel")) and gui.Visible and gui.AbsoluteSize.X > 0 then
+                                    -- Kiểm tra nếu ô UI này có chứa UIStroke (Viền bao quanh làm nổi bật)
+                                    local stroke = gui:FindFirstChildOfClass("UIStroke")
+                                    if stroke and stroke.Enabled then
+                                        -- Nếu viền có màu sáng nổi bật (như viền đỏ hoặc viền trắng nổi lên)
+                                        if stroke.Color.R > 0.7 or (stroke.Color.R > 0.4 and stroke.Color.G > 0.4) then
+                                            highlightedTargetGui = gui break
                                         end
+                                    end
+                                    
+                                    -- Dự phòng: Nếu game không dùng UIStroke mà dùng cơ chế đổi màu nền (BackgroundColor) hoặc đổi độ trong suốt
+                                    if gui:GetAttribute("Highlighted") == true or gui:GetAttribute("Active") == true then
+                                        highlightedTargetGui = gui break
                                     end
                                 end
                             end
                         end
                         
-                        -- 🌟 BƯỚC 2: TỰ ĐỘNG CLICK VÀO VÒNG TRÒN MINIGAME ĐỂ KÉO CÁ
-                        if isMinigameActive and bubbleTargetGui then
+                        -- 🌟 BƯỚC 3: TỰ ĐỘNG BẤM CHÍNH XÁC VÀO Ô ĐANG SÁNG VIỀN
+                        if isMinigameActive and highlightedTargetGui then
                             pcall(function()
-                                local posX = bubbleTargetGui.AbsolutePosition.X + (bubbleTargetGui.AbsoluteSize.X / 2)
-                                local posY = bubbleTargetGui.AbsolutePosition.Y + (bubbleTargetGui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
+                                -- Tính toán tọa độ tâm của ô con vật đang sáng viền
+                                local posX = highlightedTargetGui.AbsolutePosition.X + (highlightedTargetGui.AbsoluteSize.X / 2)
+                                local posY = highlightedTargetGui.AbsolutePosition.Y + (highlightedTargetGui.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
                                 
+                                -- Giả lập click chuột trái vào ô đó
                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
                                 task.wait(0.01)
                                 VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
-                                bubbleTargetGui:Activate()
+                                
+                                -- Ép kích hoạt nút bấm UI
+                                if highlightedTargetGui:IsA("ImageButton") or highlightedTargetGui:IsA("TextButton") then
+                                    highlightedTargetGui:Activate()
+                                end
                             end)
-                            task.wait(0.04)
+                            task.wait(0.03) -- Trì hoãn cực ngắn để chuẩn bị bấm ô tiếp theo khi game đổi vị trí sáng
                         
-                        -- 🌟 BƯỚC 3: XỬ LÝ QUĂNG CẦN & GIẬT CẦN NGẦM KHÔNG PHỤ THUỘC BALO (BACKPACK)
+                        -- 🌟 BƯỚC 4: NẾU KHÔNG CÓ MINIGAME -> LOGIC QUĂNG DÂY VÀ ĐỢI ĐỐM XANH LÁ CẮN CÂU
                         else
-                            -- SỬA LỖI ĐỔI CẦN: Tự động kích hoạt Click Chuột trái để gọi chiếc cần bạn đã bấm Equipped sẵn trong game ra tay
                             local holdingRod = char:FindFirstChildOfClass("Tool")
-                            
-                            -- Dò tìm vật thể phao/mồi câu của bạn ở Workspace
-                            local myBobber = nil
-                            for _, b in pairs(workspace:GetDescendants()) do
-                                if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure")) then
-                                    if (mr.Position - b.Position).Magnitude < 80 then
-                                        myBobber = b break
+                            if holdingRod and string.find(string.lower(holdingRod.Name), "rod") then
+                                
+                                -- Tìm chiếc phao câu của bạn ở Workspace gần bè/thuyền
+                                local myBobber = nil
+                                for _, b in pairs(workspace:GetDescendants()) do
+                                    if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure") or string.find(string.lower(b.Name), "fishing")) then
+                                        if (mr.Position - b.Position).Magnitude < 80 then
+                                            myBobber = b break
+                                        end
                                     end
                                 end
-                            end
-                            
-                            -- Trường hợp A: ĐÃ QUĂNG DÂY (Phao dưới nước) -> Theo dõi xung động để giật
-                            if myBobber then
-                                local fishBiting = false
-                                -- Khi cá đớp mồi trong One Piece Final, phao sẽ rung lắc mạnh hoặc lặn hẳn xuống
-                                if myBobber.AssemblyLinearVelocity.Y < -2.5 or math.abs(myBobber.AssemblyLinearVelocity.Y) > 4 then
-                                    fishBiting = true
-                                end
-                                if myBobber:GetAttribute("Biting") == true or myBobber:GetAttribute("State") == "Bite" then
-                                    fishBiting = true
-                                end
                                 
-                                -- Cá cắn -> Click Chuột Trái phát đầu tiên để lôi cần kích hoạt giai đoạn nổ bong bóng minigame!
-                                if fishBiting then
+                                -- Trường hợp A: Phao đang ở dưới nước -> Đợi đốm hiệu ứng màu xanh bùng lên để giật cần
+                                if myBobber then
+                                    local fishBiting = false
+                                    for _, obj in pairs(workspace:GetDescendants()) do
+                                        if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) and (obj:IsDescendantOf(myBobber) or (obj.Parent:IsA("BasePart") and (obj.Parent.Position - myBobber.Position).Magnitude < 8)) then
+                                            -- Lọc màu xanh lá cây đặc trưng của game khi cá cắn (Green > 0.7)
+                                            if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints.Value.G > 0.7 and obj.Color.Keypoints.Value.R < 0.4) then
+                                                fishBiting = true break
+                                            elseif obj:IsA("Sparkles") and (obj.SparkleColor.G > 0.7 and obj.SparkleColor.R < 0.4) then
+                                                fishBiting = true break
+                                            end
+                                        end
+                                    end
+                                    
+                                    -- Dự phòng thêm cơ chế giật phao vật lý
+                                    if not fishBiting and (myBobber.AssemblyLinearVelocity.Y < -2.2 or myBobber:GetAttribute("Biting") == true) then
+                                        fishBiting = true
+                                    end
+                                    
+                                    -- Báo cá cắn -> Click chuột trái giật cần lôi bảng minigame lên!
+                                    if fishBiting then
+                                        pcall(function()
+                                            vU:CaptureController()
+                                            vU:ClickButton1(Vector2.new(9999, 9999))
+                                        end)
+                                        task.wait(1.2) -- Trì hoãn chờ bảng PULL IT! hiện ra
+                                    end
+                                    
+                                -- Trường hợp B: Chưa thả cần -> Click chuột trái 1 phát để quăng dây xuống biển
+                                else
                                     pcall(function()
                                         vU:CaptureController()
                                         vU:ClickButton1(Vector2.new(9999, 9999))
                                     end)
-                                    task.wait(1.0)
+                                    task.wait(2.0) -- Đợi hoạt ảnh quăng dây rơi hoàn tất
                                 end
-                                
-                            -- Trường hợp B: CHƯA QUĂNG DÂY (Không thấy phao) -> Click Chuột Trái quăng dây câu xuống biển
                             else
-                                pcall(function()
-                                    vU:CaptureController()
-                                    vU:ClickButton1(Vector2.new(9999, 9999))
-                                end)
-                                task.wait(1.8) -- Delay chờ dây quăng ra ổn định vị trí trên mặt nước
+                                -- Nếu script ko chạy, nhắc nhở bạn cầm cần lên tay (Như ô phím nóng số 5 màu xanh trong ảnh)
+                                warn("⚠️ Vui lòng cầm sẵn cần câu trên tay trước khi bật Auto!")
+                                task.wait(1.5)
                             end
                         end
                     end
