@@ -434,7 +434,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN TELEPORT THEO KIM LA BÀN OPL
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN DỊCH CHUYỂN CHẠM ĐÍCH TOUCHINTEREST (100%)
 -- ====================================================================
 
 -- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: DỊCH CHUYỂN TỨC THỜI CHUẨN XÁC THEO KIM "COMPASSNEEDLE"
+-- 🌟 NÚT 2: DỊCH CHUYỂN TỨC THỜI CHỚP MẮT TỚI ĐIỂM CHẠM WORKSPACE COMPASS
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -486,62 +486,60 @@ tab3:CreateToggle({
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.4) -- Nhịp delay nhảy chặng chớp mắt
+                    task.wait(0.5) -- Nhịp delay an toàn cho hệ thống nạp dữ liệu
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if mr and hum and hum.Health > 0 then
-                        -- Tự động kiểm tra và cưỡng ép cầm la bàn ra tay
-                        local hc = char:FindFirstChild("Compass") or char:FindFirstChild("compass")
-                        if not hc then
-                            for _, item in pairs(pObj.Backpack:GetChildren()) do
-                                local itemName = string.lower(item.Name)
-                                if string.find(itemName, "comp") or string.find(itemName, "la ban") then
-                                    hum:EquipTool(item)
-                                    hc = item
-                                    task.wait(0.15)
-                                    break
+                        -- 1. Tìm vật thể đích nằm trong Workspace (Dựa trên đường dẫn bạn phát hiện)
+                        local targetCompass = workspace:FindFirstChild("Compass") or workspace:FindFirstChild("compass")
+                        local targetHandle = targetCompass and targetCompass:FindFirstChild("Handle")
+                        
+                        -- Phương án quét diện rộng nếu game giấu Compass đích vào thư mục con của Workspace
+                        if not targetHandle then
+                            for _, obj in pairs(workspace:GetChildren()) do
+                                if obj.Name == "Compass" or obj.Name == "compass" then
+                                    -- Đảm bảo đây là vật thể đích trên đảo chứ không phải la bàn nhân vật đang cầm
+                                    if obj ~= char:FindFirstChild("Compass") and not obj:IsAncestorOf(char) then
+                                        targetHandle = obj:FindFirstChild("Handle")
+                                        if targetHandle then break end
+                                    end
                                 end
                             end
                         end
                         
-                        -- Xử lý bẻ khóa hướng kim khi đã cầm chắc la bàn trên tay
-                        if hc then
-                            pcall(function() hc:Activate() end)
-                            
-                            -- Tìm đúng bộ phận Kim la bàn (CompassNeedle) mà bạn vừa quét được trong Dex
-                            local needle = hc:FindFirstChild("CompassNeedle")
-                            if needle and needle:IsA("BasePart") then
-                                
-                                -- Trích xuất hướng nhìn phẳng (bỏ qua trục Y để tránh cắm đầu xuống đất hoặc bay lên trời)
-                                local lookDir = needle.CFrame.LookVector
-                                local flatDirection = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
-                                
-                                -- Tính toán tọa độ bước nhảy tiếp theo (Nhảy chặng 1,800 Studs cực nhanh dọc theo tia kim chỉ)
-                                local nextPosition = mr.Position + (flatDirection * 1800)
-                                
-                                -- THỰC THI NHẢY TỌA ĐỘ CHỚP MẮT
-                                mr.Anchored = false
-                                for _, p in pairs(char:GetChildren()) do
-                                    if p:IsA("BasePart") then p.Anchored = false end
-                                end
-                                
-                                -- Đặt độ cao an toàn (Y = 150) để nhân vật luôn bay trên không trung, không lo kẹt vách núi hay đảo ngầm
-                                mr.CFrame = CFrame.new(nextPosition.X, 150, nextPosition.Z)
-                                
-                                -- Khóa chân 0.2 giây để server cập nhật vị trí mới tránh bị rollback giật lùi lại chỗ cũ
-                                mr.Anchored = true
-                                task.wait(0.2)
-                                mr.Anchored = false
+                        -- 2. Thực hiện dịch chuyển và giả lập va chạm nhận Trái Ác Quỷ
+                        if targetHandle then
+                            -- Giải phóng khóa chân trước khi nhảy tọa độ
+                            mr.Anchored = false
+                            for _, part in pairs(char:GetChildren()) do
+                                if part:IsA("BasePart") then part.Anchored = false end
                             end
+                            
+                            -- [INSTANT TP] Đưa nhân vật đến sát vị trí Handle đích
+                            mr.CFrame = targetHandle.CFrame * CFrame.new(0, 1, 0)
+                            
+                            -- Khóa chân 0.3 giây tại đích
+                            mr.Anchored = true
+                            
+                            -- MẸO ĐỈNH CAO: Kích hoạt trực tiếp sự kiện chạm (Touch) mà không cần đợi chân nhân vật va vào vật lý
+                            local touchInterest = targetHandle:FindFirstChildOfClass("TouchInterest")
+                            if touchInterest then
+                                firetouchinterest(mr, targetHandle, 0) -- Giả lập Chạm (Touch)
+                                task.wait(0.05)
+                                firetouchinterest(mr, targetHandle, 1) -- Giả lập Thả (Untouch)
+                            end
+                            
+                            task.wait(0.25)
+                            mr.Anchored = false
                         end
                     end
                 end
             end)
         else
-            -- Giải phóng hoàn toàn nhân vật khi người chơi TẮT tính năng
+            -- Giải phóng nhân vật tự do khi tắt nút bấm
             pcall(function()
                 local char = pObj.Character
                 if char and char:FindFirstChild("HumanoidRootPart") then
@@ -551,7 +549,6 @@ tab3:CreateToggle({
         end
     end
 })
-
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
