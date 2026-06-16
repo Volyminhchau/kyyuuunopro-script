@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN TOÁN HỌC KHÓA ĐIỂM] TP THEO CẢ 2 ĐẦU KIM - KHÓA VĨNH VIỄN CÂY CŨ - RESET KHI MẤT COMPASS
+-- 🌟 NÚT 2: [BẢN VÁ LỖI KHỞI ĐỘNG] TP CHUỖI ĐƯỜNG THẲNG 2 ĐẦU KIM - KHÓA VĨNH VIỄN CÂY CŨ
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -484,29 +484,29 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Bước 1: Quét lưu danh sách toàn bộ Spawner từ MapFolder.Trees
+                -- Bước 1: Thu thập toàn bộ linh kiện Spawner từ workspace.MapFolder.Trees [^1]
                 local allTreeSpawns = {}
-                local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
+                local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees") [^1]
                 if treesFolder then
-                    for _, child in pairs(treesFolder:GetChildren()) do
-                        local spawner = child:FindFirstChild("Spawner")
+                    for _, child in pairs(treesFolder:GetChildren()) do [^1]
+                        local spawner = child:FindFirstChild("Spawner") [^1]
                         if spawner then table.insert(allTreeSpawns, spawner) end
                     end
                 end
                 
-                -- Tạo tấm đệm tàng hình lót chân chống rơi nước biển
-                local safetyPlatform = Instance.new("Part", workspace)
+                -- Tạo tấm đệm tàng hình lót chân chống rơi nước biển [•]
+                local safetyPlatform = Instance.new("Part", workspace) [•]
                 safetyPlatform.Size = Vector3.new(6, 1, 6)
                 safetyPlatform.Transparency = 1
                 safetyPlatform.Anchored = true
                 safetyPlatform.CanCollide = true
                 
-                -- 🔥 DANH SÁCH ĐEN KHÓA CỨNG: Chỉ Reset khi la bàn biến mất hẳn khỏi tay
+                -- DANH SÁCH ĐEN KHÓA CỨNG: Chỉ Reset khi la bàn biến mất hẳn khỏi tay [•]
                 local blacklistedTreeNames = {}
                 local currentCompassInstance = nil
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.22) -- Nhịp nhảy siêu tốc liên tục
+                    task.wait(0.2) -- Đẩy tốc độ quét lên cực cao để kích hoạt TP ngay lập tức
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
@@ -514,66 +514,65 @@ tab3:CreateToggle({
                     if hum and hum.Health > 0 and rootPart then
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- Kiểm tra vật phẩm la bàn trong balo hoặc trên tay của bạn
-                        local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
+                        -- Kiểm tra vật phẩm la bàn trong balo hoặc trên tay của bạn [•]
+                        local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass") [•]
                         if not hc then
                             _G.AutoFlyToCompassDirection = false
                             if tab3.SetToggle then tab3:SetToggle(false) end
                             break
                         end
                         
-                        -- Tự động cầm công cụ và kích hoạt chạy ngầm nội bộ
+                        -- Tự động cầm công cụ và kích hoạt chạy ngầm nội bộ [•]
                         if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.1) end
                         if hc.Parent == char then hc:Activate() end
                         
-                        -- 🔥 🔥 CƠ CHẾ RESET DANH SÁCH ĐEN CHUẨN: Chỉ chạy khi la bàn TRÊN TAY biến mất hoàn toàn
-                        -- Nếu tay trống hoặc đổi sang một chiếc la bàn mới hoàn toàn trong balo
+                        -- CƠ CHẾ RESET DANH SÁCH ĐEN CHUẨN: Chỉ chạy khi la bàn TRÊN TAY biến mất hoàn toàn [•]
                         if currentCompassInstance ~= hc then
                             if currentCompassInstance ~= nil then 
-                                print("🔄 La bàn trên tay đã đổi/mất hoàn toàn! Tiến hành Reset sạch Danh Sách Đen.")
-                                blacklistedTreeNames = {} -- Xóa sạch bộ nhớ để bắt đầu chuỗi săn mới
+                                print("🔄 La bàn trên tay đã đổi/mất! Reset sạch Danh Sách Đen.")
+                                blacklistedTreeNames = {} 
                             end
-                            currentCompassInstance = hc -- Ghi nhớ chiếc la bàn hiện tại
+                            currentCompassInstance = hc
                         end
                         
-                        -- Định vị linh kiện kim la bàn xám trong Workspace
+                        -- Định vị linh kiện kim la bàn trong Workspace [•]
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
                             if item.Name == "CompassNeedle" and item:IsA("BasePart") then needle = item break end
                         end
                         
                         if needle then
-                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin mạng hướng đi mới liên tục
+                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin đồng bộ hướng mới [•]
                             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             
-                            -- 🔥 CHẤP NHẬN CẢ 2 ĐẦU KIM: Quét song song cả Trục Xuôi và Trục Ngược 180 độ
+                            -- CHẤP NHẬN CẢ 2 ĐẦU KIM: Đọc trục bên mặt phẳng ngang
                             local compassVector = needle.CFrame.RightVector
                             local checkVectors = {
-                                Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit,  -- Hướng đầu A
-                                Vector3.new(-compassDirection.X, 0, -compassDirection.Z).Unit -- Hướng đầu B (Ngược lại 180 độ)
+                                Vector3.new(compassVector.X, 0, compassVector.Z).Unit,
+                                Vector3.new(-compassVector.X, 0, -compassVector.Z).Unit -- Trục đối xứng ngược lại 180 độ [•]
                             }
                             
                             local bestNextSpawn = nil
                             local maxDistance = 0
                             
-                            -- Quét tìm cây Spawner nằm thẳng hàng trên đường thẳng kéo dài của cả 2 đầu kim
+                            -- Quét tìm cây Spawner nằm thẳng hàng trên đường thẳng kéo dài của cả 2 đầu kim [•]
                             for _, moveDirection in pairs(checkVectors) do
                                 for _, spawner in pairs(allTreeSpawns) do
                                     if spawner and spawner.Parent then
                                         local treeNameKey = spawner.Parent:GetFullName()
                                         
-                                        -- ĐIỀU KIỆN KHÓA CHẶT: Nếu cây này CHƯA từng được đi qua thì mới xử lý
+                                        -- ĐIỀU KIỆN KHÓA CHẶT: Cây chưa nằm trong danh sách đen [•]
                                         if not blacklistedTreeNames[treeNameKey] then
                                             local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
                                             local vectorToSpawn = (spawnPos - rootPart.Position)
                                             local dist = vectorToSpawn.Magnitude
                                             
-                                            -- Chỉ xét tầm quét cây tầm xa từ 50 block đến 35,000 block
-                                            if dist > 50 and dist < 35000 then
+                                            -- 🔥 SỬA LỖI KHỞI ĐỘNG: Giảm khoảng cách tối thiểu từ 50 xuống 5 block để TP được luôn [•]
+                                            if dist > 5 and dist < 35000 then
                                                 local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
                                                 
-                                                -- Nếu cây nằm thẳng hàng với đường thẳng la bàn chỉ (Dot Product > 0.92)
-                                                if moveDirection:Dot(dirToSpawn) > 0.92 and dist > maxDistance then
+                                                -- Góc ngắm thẳng hàng (Dot Product > 0.88)
+                                                if moveDirection:Dot(dirToSpawn) > 0.88 and dist > maxDistance then
                                                     maxDistance = dist
                                                     bestNextSpawn = spawner
                                                 end
@@ -581,24 +580,22 @@ tab3:CreateToggle({
                                         end
                                     end
                                 end
-                                -- Nếu hướng này đã tìm thấy cây hợp lệ, ưu tiên nhảy luôn
                                 if bestNextSpawn then break end
                             end
                             
-                            -- 🔥 THỰC HIỆN TELEPORT VÀ ĐƯA VÀO DANH SÁCH ĐEN KHÓA CHẾT VĨNH VIỄN
+                            -- THỰC HIỆN TELEPORT VÀ ĐƯA VÀO DANH SÁCH ĐEN KHÓA CHẾT VĨNH VIỄN [•]
                             if bestNextSpawn then
                                 local treeNameKey = bestNextSpawn.Parent:GetFullName()
-                                -- Đưa ngay tên cây này vào danh sách đen để chặn vĩnh viễn không bao giờ quay lại
-                                blacklistedTreeNames[treeNameKey] = true
+                                blacklistedTreeNames[treeNameKey] = true -- Đưa vào danh sách đen ngay [•]
                                 
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
-                                print("⚡ TP CHUỖI ĐƯỜNG THẲNG -> Khóa vĩnh viễn Spawner: " .. bestNextSpawn.Parent.Name)
+                                print("⚡ TP KHỞI ĐỘNG LIÊN TỤC -> Khóa Spawner: " .. bestNextSpawn.Parent.Name) [•]
                                 
-                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner mục tiêu
+                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner mục tiêu [•]
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             else
-                                -- Nếu cả 2 hướng đều kẹt hoặc kim chưa xoay xong, nhấp nhô nhẹ tọa độ tránh đơ mạng
+                                -- Nhấp nhô nhẹ tọa độ để ép la bàn cập nhật mạng nếu bị khựng [•]
                                 rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         end
