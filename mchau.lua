@@ -474,139 +474,139 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN FIX CHỐNG TRỄ MẠNG] TP CHUỖI 2 ĐẦU KIM - KHÓA TỌA ĐỘ CỨNG VĨNH VIỄN - CHỐNG LẶP TUYỆT ĐỐI
-tab3:CreateToggle({
-    Name = "Dịch chuyển tức thời theo la bàn",
+-- ====================================================================
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - TỐI ƯU GIẢM LAG + CLICK MINIGAME
+-- ====================================================================
+local _G = _G or {}
+_G.AutoFishing = false
+_G.SelectedRod = "Wood Rod"
+
+-- Khởi tạo Tab Fishing ở danh mục bên trái menu
+local tab4 = MainMenu:CreateTab("Fishing 🎣")
+
+tab4:CreateDropdown({
+    Name = "Chọn loại Cần Câu (Select Rod)",
+    Options = {"Wood Rod", "Sturdy Rod", "Super Rod"},
+    CurrentOption = "Wood Rod",
+    Callback = function(Option)
+        _G.SelectedRod = Option
+        warn("🎣 Đã chọn cần câu: " .. tostring(_G.SelectedRod))
+    end,
+})
+
+tab4:CreateToggle({
+    Name = "Tự động Câu Cá (Auto Fishing V3)",
     CurrentValue = false,
     Callback = function(v)
-        _G.AutoFlyToCompassDirection = v
-        local pObj = game:GetService("Players").LocalPlayer
+        _G.AutoFishing = v
         
-        if _G.AutoFlyToCompassDirection then
+        if _G.AutoFishing then
+            local pObj = game:GetService("Players").LocalPlayer
+            local VirtualInputManager = game:GetService("VirtualInputManager")
+            local GuiService = game:GetService("GuiService")
+            
+            -- Gọi ModuleScript mã hóa hệ thống của game
+            local ReplicatedFirst = game:GetService("ReplicatedFirst")
+            local GameModuleScript = ReplicatedFirst:FindFirstChildOfClass("ModuleScript")
+            local GameRequire = GameModuleScript and require(GameModuleScript)
+            
             task.spawn(function()
-                -- Bước 1: Thu thập toàn bộ linh kiện Spawner từ MapFolder.Trees
-                local allTreeSpawns = {}
-                local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
-                if treesFolder then
-                    for _, child in pairs(treesFolder:GetChildren()) do
-                        local spawner = child:FindFirstChild("Spawner")
-                        if spawner then table.insert(allTreeSpawns, spawner) end
-                    end
-                end
-                
-                -- Tạo tấm đệm tàng hình lót chân chống rơi nước biển
-                local safetyPlatform = Instance.new("Part", workspace)
-                safetyPlatform.Size = Vector3.new(6, 1, 6)
-                safetyPlatform.Transparency = 1
-                safetyPlatform.Anchored = true
-                safetyPlatform.CanCollide = true
-                
-                -- 🔥 DANH SÁCH ĐEN KHÓA THEO TỌA ĐỘ VỊ TRÍ ĐỊA LÝ VĨNH VIỄN TRONG CHU KỲ
-                local blacklistedPositions = {}
-                
-                while _G.AutoFlyToCompassDirection do
-                    -- 🔥 TĂNG DELAY ĐỒNG BỘ: Chờ 0.55 giây để đảm bảo Server nạp kịp Danh Sách Đen và kim la bàn kịp đổi hướng
-                    task.wait(0.55) 
+                while _G.AutoFishing do
+                    task.wait(0.1) -- Tốc độ vòng lặp chuẩn hóa để chống sập/lag game
                     
                     local char = pObj.Character
+                    local mr = char and char:FindFirstChild("HumanoidRootPart")
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
-                    if hum and hum.Health > 0 and rootPart then
-                        safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
+                    if mr and hum and hum.Health > 0 and GameRequire then
+                        local pGui = pObj:FindFirstChild("PlayerGui")
                         
-                        -- Kiểm tra vật phẩm la bàn trong balo hoặc trên tay của bạn
-                        local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
-                        
-                        -- KIỂM TRA ĐIỀU KIỆN DỪNG: Khi không còn la bàn nào trong người -> Tự tắt và xóa bộ nhớ
-                        if not hc then
-                            print("🔄 Đã cạn kiệt la bàn hoặc nhận được Box DF! Tiến hành dọn dẹp bộ nhớ.")
-                            blacklistedPositions = {} 
-                            _G.AutoFlyToCompassDirection = false
-                            if tab3.SetToggle then tab3:SetToggle(false) end
-                            break
-                        end
-                        
-                        -- Tự động cầm công cụ và kích hoạt chạy ngầm nội bộ
-                        if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.15) end
-                        if hc.Parent == char then hc:Activate() end
-                        
-                        -- Định vị linh kiện kim la bàn trong Workspace
-                        local needle = nil
-                        for _, item in pairs(workspace:GetDescendants()) do
-                            if item.Name == "CompassNeedle" and item:IsA("BasePart") then needle = item break end
-                        end
-                        
-                        if needle then
-                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin đồng bộ hướng mới liên tục
-                            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
-                            
-                            -- Lấy trục RightVector phẳng của kim làm đường thẳng dẫn hướng
-                            local needleDirection = needle.CFrame.RightVector
-                            local moveDirection = Vector3.new(needleDirection.X, 0, needleDirection.Z).Unit
-                            
-                            local bestNextSpawn = nil
-                            local maxDistance = 0
-                            
-                            -- Quét tìm cây Spawner nằm trên trục đường thẳng của kim chỉ
-                            for _, spawner in pairs(allTreeSpawns) do
-                                if spawner and spawner.Parent then
-                                    local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
-                                    
-                                    -- 🔥 MÃ HÓA TỌA ĐỘ KHỬ RUNG SAI: Chia cho 10 để khóa toàn bộ vùng bán kính 10 block xung quanh cây
-                                    local posX = math.floor(spawnPos.X / 10)
-                                    local posY = math.floor(spawnPos.Y / 10)
-                                    local posZ = math.floor(spawnPos.Z / 10)
-                                    local posKey = posX .. "," .. posY .. "," .. posZ
-                                    
-                                    -- ĐIỀU KIỆN KHÓA CHẶT TUYỆT ĐỐI: Chỉ duyệt các tọa độ địa lý CHƯA từng được đi qua
-                                    if not blacklistedPositions[posKey] then
-                                        local vectorToSpawn = (spawnPos - rootPart.Position)
-                                        local dist = vectorToSpawn.Magnitude
-                                        
-                                        -- 🔥 TĂNG KHOẢNG CÁCH TỐI THIỂU (dist > 150 block) để triệt tiêu hoàn toàn việc quét trúng đảo cũ do trễ mạng
-                                        if dist > 150 and dist < 35000 then
-                                            local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
-                                            local alignment = math.abs(moveDirection:Dot(dirToSpawn))
-                                            
-                                            -- Nếu cây nằm thẳng hàng trên trục kim la bàn chỉ (Góc lệch cực nhỏ > 0.90)
-                                            if alignment > 0.90 and dist > maxDistance then
-                                                maxDistance = dist
-                                                bestNextSpawn = spawner
+                        -- 🌟 BƯỚC 1: XỬ LÝ CLICK GIẢI ĐỐ MINIGAME (NHẮM THẲNG PHÂN CẤP - CHỐNG LAG)
+                        local minigameGui = pGui:FindFirstChild("FishingMinigame")
+                        if minigameGui and minigameGui.Enabled == true then
+                            pcall(function()
+                                -- Chỉ tìm kiếm nút bấm trong khung chứa cụ thể (Frame chứa nút) chứ không dùng GetDescendants toàn hệ thống
+                                local container = minigameGui:FindFirstChildOfClass("Frame")
+                                local contentFrame = container and container:FindFirstChildOfClass("Frame") -- v_u_21 trong code gốc
+                                
+                                if contentFrame then
+                                    -- Quét qua danh sách các ô nút bấm đang hiển thị
+                                    for _, btn in pairs(contentFrame:GetChildren()) do
+                                        if btn:IsA("TextButton") and btn.Visible then
+                                            -- Đọc chính xác thuộc tính màu Highlight (Trắng 230) như mã nguồn gốc quy định
+                                            local bg = btn.BackgroundColor3
+                                            if math.floor(bg.R * 255) == 230 and math.floor(bg.G * 255) == 230 then
+                                                -- Giả lập bấm chuột phản xạ vào ô sáng
+                                                local posX = btn.AbsolutePosition.X + (btn.AbsoluteSize.X / 2)
+                                                local posY = btn.AbsolutePosition.Y + (btn.AbsoluteSize.Y / 2) + GuiService:GetGuiInset().Y
+                                                
+                                                VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
+                                                task.wait(0.01)
+                                                VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
+                                                btn:Activate()
+                                                break
                                             end
                                         end
                                     end
                                 end
+                            end)
+                            task.wait(0.05) -- Giãn cách nhẹ để tránh lag chuột ảo
+                        
+                        -- 🌟 BƯỚC 2: LOGIC TỰ ĐỘNG THẢ CẦN VÀ CANH GIẬT CẦN
+                        else
+                            -- Tự động lấy đúng loại cần câu bạn đã chọn ra tay
+                            local holdingRod = char:FindFirstChildOfClass("Tool")
+                            if not holdingRod or string.lower(holdingRod.Name) ~= string.lower(_G.SelectedRod) then
+                                if holdingRod then holdingRod.Parent = pObj.Backpack end
+                                local targetRodInBackpack = pObj.Backpack:FindFirstChild(_G.SelectedRod)
+                                if targetRodInBackpack then
+                                    hum:EquipTool(targetRodInBackpack)
+                                    task.wait(0.3)
+                                end
                             end
                             
-                            -- THỰC HIỆN TELEPORT SIÊU TỐC VÀ KHÓA CHẾT TOẠ ĐỘ VỪA NHẢY
-                            if bestNextSpawn then
-                                local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
+                            holdingRod = char:FindFirstChildOfClass("Tool")
+                            if holdingRod and string.lower(holdingRod.Name) == string.lower(_G.SelectedRod) then
+                                -- TỐI ƯU CHỐNG LAG: Chỉ tìm phao câu trong thư mục chứa dây câu [FishingRope_...] thay vì bới tung Workspace
+                                local myBobber = nil
+                                for _, folder in pairs(workspace:GetChildren()) do
+                                    if string.find(folder.Name, "FishingRope") then
+                                        -- Tìm chiếc phao nằm trực tiếp bên trong folder này
+                                        myBobber = folder:FindFirstChildOfClass("BasePart") or folder:FindFirstChild("bobber", true) or folder:FindFirstChild("phao", true)
+                                        if myBobber then break end
+                                    end
+                                end
                                 
-                                -- 🔥 ĐƯA TỌA ĐỘ VÀO DANH SÁCH ĐEN KHÓA CHẾT VĨNH VIỄN ĐẾN KHI HẾT COMPASS
-                                local targetX = math.floor(targetPos.X / 10)
-                                local targetY = math.floor(targetPos.Y / 10)
-                                local targetZ = math.floor(targetPos.Z / 10)
-                                local targetKey = targetX .. "," .. targetY .. "," .. targetZ
-                                blacklistedPositions[targetKey] = true 
-                                
-                                print("⚡ ĐỒNG BỘ MẠNG THÀNH CÔNG -> Đã khóa vĩnh viễn vị trí: [" .. targetKey .. "]")
-                                
-                                -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner mục tiêu
-                                safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
-                                rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
-                            else
-                                -- Nếu tất cả các cây dọc đường ngắm đều đã đi qua, tự xả bảng đen để tránh đơ mạng lơ lửng
-                                blacklistedPositions = {}
-                                rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
+                                -- TRƯỜNG HỢP A: ĐÃ THẢ DÂY CÂU -> Canh vận tốc chìm để giật cần ngầm qua hệ thống
+                                if myBobber then
+                                    local fishBiting = false
+                                    -- Kiểm tra trực tiếp gia tốc chìm (Cá đớp mồi kéo phao rơi tự do Y < -2)
+                                    if myBobber.AssemblyLinearVelocity.Y < -2 or myBobber:GetAttribute("Biting") == true then
+                                        fishBiting = true
+                                    end
+                                    
+                                    -- Nhận tín hiệu cá cắn -> Gọi mã hóa giật cần của game
+                                    if fishBiting then
+                                        pcall(function()
+                                            GameRequire["\t"]("FishingEvent", { "Reel" })
+                                        end)
+                                        task.wait(1.0)
+                                    end
+                                    
+                                -- TRƯỜNG HỢP B: CHƯA THẢ DÂY CÂU -> Gọi mã hóa quăng cần
+                                else
+                                    pcall(function()
+                                        GameRequire["\t"]("FishingEvent", { "Cast" })
+                                    end)
+                                    task.wait(2.0) -- Delay an toàn chờ phao nước ổn định
+                                end
                             end
                         end
+                        
                     end
                 end
-                if safetyPlatform then safetyPlatform:Destroy() end
             end)
         end
     end
 })
-
 
