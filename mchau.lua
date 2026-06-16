@@ -474,19 +474,19 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: TELEPORT THEO TỌA ĐỘ LA BÀN (Đã sửa đổi loại bỏ Fly/Remote, chuyển thành TP cứng)
+-- 🌟 NÚT 2: TELEPORT THEO HƯỚNG KIM ĐỎ - CHỈ ĐÁP XUỐNG ĐẤT LIỀN
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
     Callback = function(v)
-        _G.AutoFlyToCompassDirection = v -- Giữ nguyên tên biến hệ thống của bạn để tránh lỗi đồng bộ
+        _G.AutoFlyToCompassDirection = v
         
         local pObj = game:GetService("Players").LocalPlayer
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.3) -- Nhịp quét vị trí la bàn
+                    task.wait(0.2) -- Tốc độ quét và dịch chuyển (Có thể chỉnh thấp xuống nếu muốn TP nhanh hơn)
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -502,70 +502,62 @@ tab3:CreateToggle({
                         end
                         
                         if hc and hc.Parent == char then
-                            -- Kích hoạt la bàn để ép sinh dữ liệu mục tiêu
-                            hc:Activate()
+                            hc:Activate() -- Kích hoạt la bàn để cập nhật hướng kim
                             
-                            -- LẤY DỮ LIỆU TỌA ĐỘ MỤC TIÊU ẨN (CÂY/BOX) BÊN TRONG LA BÀN
-                            -- Quét các ObjectValue thông dụng chứa vị trí mà game thiết lập cho la bàn
-                            local targetValue = hc:FindFirstChild("Target") or hc:FindFirstChild("Location") or hc:FindFirstChild("Tree")
-                            local targetCFrame = nil
-                            
-                            if targetValue and targetValue.Value then
-                                -- Trường hợp dữ liệu trả về là một Object (Part/Model) trong Workspace
-                                if typeof(targetValue.Value) == "Instance" then
-                                    if targetValue.Value:IsA("BasePart") then
-                                        targetCFrame = targetValue.Value.CFrame
-                                    elseif targetValue.Value:IsA("Model") then
-                                        targetCFrame = targetValue.Value:GetPivot()
+                            local needle = hc:FindFirstChild("CompassNeedle")
+                            if needle and (needle:IsA("BasePart") or needle:IsA("Model")) then
+                                
+                                -- 1. LẤY HƯỚNG CỦA KIM LA BÀN MÀU ĐỎ
+                                -- Thường kim la bàn sẽ chỉ hướng bằng trục LookVector hoặc RightVector tùy theo cách build model của dev game
+                                local needlePart = needle:IsA("Model") and needle.PrimaryPart or needle
+                                local lookDirection = needlePart.CFrame.LookVector
+                                
+                                -- 2. THIẾT LẬP KHOẢNG CÁCH DI CHUYỂN MỖI BƯỚC NHẢY (Ví dụ: nhảy 150 block một lần theo hướng kim)
+                                local stepDistance = 150 
+                                local checkPosition = rootPart.Position + (lookDirection * stepDistance)
+                                
+                                -- 3. SỬ DỤNG RAYCAST ĐỂ QUÉT TÌM KHỐI VẬT ĐẤT LIỀN TẠI VỊ TRÍ ĐÓ
+                                -- Bắn một tia từ trên cao xuống dưới đất để tìm bề mặt cứng
+                                local raycastOrigin = Vector3.new(checkPosition.X, 300, checkPosition.Z) -- Điểm bắt đầu từ trên trời cao 300 block
+                                local raycastDirection = Vector3.new(0, -400, 0) -- Bắn thẳng xuống dưới đất
+                                
+                                local raycastParams = RaycastParams.new()
+                                raycastParams.FilterFilterType = Enum.RaycastFilterType.Exclude
+                                raycastParams.FilterDescendantsInstances = {char} -- Bỏ qua chính cơ thể nhân vật để tránh bắn trúng mình
+                                
+                                local raycastResult = workspace:Raycast(raycastOrigin, raycastDirection, raycastParams)
+                                
+                                if raycastResult then
+                                    -- Nếu tìm thấy vật thể ở dưới (Đất liền, Sàn nhà, Địa hình...)
+                                    local hitPart = raycastResult.Instance
+                                    local hitPosition = raycastResult.Position
+                                    
+                                    -- Kiểm tra xem có phải là vùng nước biển không (nếu game đặt tên nước là "Water" hoặc "Sea")
+                                    if not string.find(string.lower(hitPart.Name), "water") and not string.find(string.lower(hitPart.Name), "sea") then
+                                        
+                                        -- TIẾN HÀNH TP AN TOÀN ĐẾN ĐIỂM ĐẤT CỨNG VỪA QUÉT ĐƯỢC
+                                        rootPart.Anchored = true
+                                        rootPart.CFrame = CFrame.new(hitPosition + Vector3.new(0, 3, 0)) -- Cộng thêm 3 block chiều cao để chân chạm đất đẹp
+                                        task.wait(0.1)
+                                        rootPart.Anchored = false
+                                        
+                                        print("Đã TP an toàn đến tọa độ đất liền tiếp theo: " .. tostring(hitPosition))
+                                    else
+                                        print("Phát hiện nước biển/vực sâu phía trước theo hướng kim chỉ! Đang tìm góc an toàn khác...")
                                     end
-                                -- Trường hợp dữ liệu trả về thẳng là dữ liệu CFrame hoặc Vector3
-                                elseif typeof(targetValue.Value) == "CFrame" then
-                                    targetCFrame = targetValue.Value
-                                elseif typeof(targetValue.Value) == "Vector3" then
-                                    targetCFrame = CFrame.new(targetValue.Value)
-                                end
-                            end
-                            
-                            -- TIẾN HÀNH TELEPORT (TP) NẾU TÌM THẤY TỌA ĐỘ
-                            if targetCFrame then
-                                -- Neo nhân vật tạm thời để tránh bị rơi tự do hoặc lỗi vật lý khi dịch chuyển xa
-                                rootPart.Anchored = true
-                                
-                                -- Dịch chuyển thẳng đến tọa độ mục tiêu (bù thêm 2 block chiều cao để tránh kẹt đất)
-                                rootPart.CFrame = targetCFrame * CFrame.new(0, 2, 0)
-                                task.wait(0.2)
-                                
-                                -- Chạy một vòng tròn nhỏ cực nhanh xung quanh mục tiêu để đảm bảo Hitbox của game nhận diện bạn đã chạm cây
-                                for i = 1, 4 do
-                                    local angle = (i / 4) * math.pi * 2
-                                    rootPart.CFrame = targetCFrame * CFrame.new(math.cos(angle) * 3, 2, math.sin(angle) * 3)
-                                    task.wait(0.05)
-                                end
-                                
-                                rootPart.Anchored = false
-                                task.wait(0.3)
-                                
-                                -- Kiểm tra nếu la bàn biến mất (Chứng tỏ hệ thống game đã đổi la bàn thành Box DF thành công)
-                                if not char:FindFirstChild("Compass") and not pObj.Backpack:FindFirstChild("Compass") then
-                                    print("TP thành công! Đã nhận được Box DF.")
-                                    _G.AutoFlyToCompassDirection = false
-                                    -- Đoạn code giúp tắt trạng thái hiển thị của Nút trên Menu UI Rayfield/Kavo của bạn
-                                    if tab3.SetToggle then 
-                                        tab3:SetToggle(false) 
-                                    end
-                                    break
+                                else
+                                    print("Không tìm thấy nền đất liền nào ở hướng này, tạm dừng nhảy để tránh rơi map.")
                                 end
                             else
-                                -- Phương án dự phòng: Nếu dữ liệu tọa độ bị ẩn trên Client, tự động quét các model cây (Tree) có gắn thẻ đặc biệt gần đó
-                                for _, folder in pairs(workspace:GetChildren()) do
-                                    if folder:IsA("Model") and string.find(string.lower(folder.Name), "tree") then
-                                        local mesh = folder:FindFirstChildWhichIsA("BasePart")
-                                        -- Nếu cây có chứa thuộc tính đổi màu hoặc độ xa hợp lý, tiến hành TP thử
-                                        if mesh and (mesh.Position - rootPart.Position).Magnitude < 3000 then
-                                            -- Bạn có thể bổ sung logic TP thử vào đây nếu cần quét mù (Blind Scan)
-                                        end
-                                    end
-                                end
+                                print("Không tìm thấy CompassNeedle để lấy hướng xoay!")
+                            end
+                            
+                            -- CƠ CHẾ KIỂM TRA ĐÍCH: Nếu la bàn biến mất hoàn toàn nghĩa là bạn đã chạm trúng mục tiêu ẩn và đổi được Box thành công
+                            if not char:FindFirstChild("Compass") and not pObj.Backpack:FindFirstChild("Compass") then
+                                print("Chúc mừng! Đã tìm thấy cây và nhận được Box DF.")
+                                _G.AutoFlyToCompassDirection = false
+                                if tab3.SetToggle then tab3:SetToggle(false) end
+                                break
                             end
                             
                         end
@@ -575,7 +567,6 @@ tab3:CreateToggle({
         end
     end
 })
-
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
