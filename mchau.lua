@@ -434,9 +434,8 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN SỬA LỖI ĐỊNH VỊ CHUẨN OPL 100%
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN TELEPORT THEO KIM LA BÀN OPL
 -- ====================================================================
-local lastD = Vector3.new(0, 0, 0)
 
 -- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
 tab3:CreateToggle({
@@ -475,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: VÒNG LẶP AUTO ĐEO TOOL + DỊCH CHUYỂN CHUẨN ĐÍCH 
+-- 🌟 NÚT 2: DỊCH CHUYỂN TỨC THỜI CHUẨN XÁC THEO KIM "COMPASSNEEDLE"
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -487,7 +486,7 @@ tab3:CreateToggle({
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.5) -- Nhịp delay an toàn chống quét trùng lặp
+                    task.wait(0.4) -- Nhịp delay nhảy chặng chớp mắt
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -502,76 +501,39 @@ tab3:CreateToggle({
                                 if string.find(itemName, "comp") or string.find(itemName, "la ban") then
                                     hum:EquipTool(item)
                                     hc = item
-                                    task.wait(0.2)
+                                    task.wait(0.15)
                                     break
                                 end
                             end
                         end
                         
-                        -- Xử lý dịch chuyển khi đã cầm chắc la bàn trên tay
+                        -- Xử lý bẻ khóa hướng kim khi đã cầm chắc la bàn trên tay
                         if hc then
                             pcall(function() hc:Activate() end)
-                            task.wait(0.15) -- Đợi game đồng bộ dữ liệu đích
                             
-                            local treasurePosition = nil
-                            
-                            -- ĐOẠN ĐỊNH VỊ MỚI DÀNH RIÊNG CHO OPL:
-                            -- Hướng A: Đọc ObjectValue/StringValue lưu tên hoặc vị trí cây đích nằm TRONG la bàn
-                            for _, child in pairs(hc:GetChildren()) do
-                                if child:IsA("ObjectValue") and child.Value and (child.Value:IsA("BasePart") or child.Value:IsA("Model")) then
-                                    treasurePosition = child.Value:GetPivot().Position
-                                    break
-                                elseif child:IsA("StringValue") and workspace:FindFirstChild(child.Value, true) then
-                                    local targetObj = workspace:FindFirstChild(child.Value, true)
-                                    treasurePosition = targetObj:GetPivot().Position
-                                    break
-                                end
-                            end
-                            
-                            -- Hướng B: Quét thư mục Quest của người chơi xem game có nhét tọa độ mục tiêu vào đó không
-                            if not treasurePosition then
-                                local questFolder = pObj:FindFirstChild("Quests") or pObj:FindFirstChild("QuestReceived")
-                                if questFolder then
-                                    for _, qValue in pairs(questFolder:GetDescendants()) do
-                                        if qValue:IsA("Vector3Value") or qValue:IsA("CFrameValue") then
-                                            treasurePosition = (qValue:IsA("Vector3Value") and qValue.Value) or qValue.Value.Position
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                            
-                            -- Hướng C (Dự phòng tối cao của OPL): Quét thẳng các cây chứa Trái Ác Quỷ đang mở trên Workspace
-                            if not treasurePosition then
-                                for _, obj in pairs(workspace:GetDescendants()) do
-                                    -- Tìm các Model cây có đặc điểm chứa Quả hoặc Đốm Sáng đặc biệt của Quest Compass
-                                    if obj:IsA("Model") and (string.find(string.lower(obj.Name), "fruittree") or string.find(string.lower(obj.Name), "legendarytree") or obj:FindFirstChild("Fruit")) then
-                                        treasurePosition = obj:GetPivot().Position
-                                        break
-                                    end
-                                end
-                            end
-                            
-                            -- 🌟 THỰC THI ĐẾN ĐÚNG ĐÍCH (TUYỆT ĐỐI KHÔNG DÙNG VECTOR KIM MÙ)
-                            if treasurePosition then
-                                -- Mở khóa chân trước khi nhảy tọa độ
+                            -- Tìm đúng bộ phận Kim la bàn (CompassNeedle) mà bạn vừa quét được trong Dex
+                            local needle = hc:FindFirstChild("CompassNeedle")
+                            if needle and needle:IsA("BasePart") then
+                                
+                                -- Trích xuất hướng nhìn phẳng (bỏ qua trục Y để tránh cắm đầu xuống đất hoặc bay lên trời)
+                                local lookDir = needle.CFrame.LookVector
+                                local flatDirection = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
+                                
+                                -- Tính toán tọa độ bước nhảy tiếp theo (Nhảy chặng 1,800 Studs cực nhanh dọc theo tia kim chỉ)
+                                local nextPosition = mr.Position + (flatDirection * 1800)
+                                
+                                -- THỰC THI NHẢY TỌA ĐỘ CHỚP MẮT
                                 mr.Anchored = false
                                 for _, p in pairs(char:GetChildren()) do
                                     if p:IsA("BasePart") then p.Anchored = false end
                                 end
                                 
-                                -- Di chuyển chớp mắt đến vị trí gốc cây (cao hơn gốc cây 3 block để không lọt xuống đất)
-                                mr.CFrame = CFrame.new(treasurePosition.X, treasurePosition.Y + 3, treasurePosition.Z)
+                                -- Đặt độ cao an toàn (Y = 150) để nhân vật luôn bay trên không trung, không lo kẹt vách núi hay đảo ngầm
+                                mr.CFrame = CFrame.new(nextPosition.X, 150, nextPosition.Z)
                                 
-                                -- Khóa chân 0.5 giây để phía Server của game kịp ghi nhận bạn đã tới nơi và kích hoạt nhặt trái cây
+                                -- Khóa chân 0.2 giây để server cập nhật vị trí mới tránh bị rollback giật lùi lại chỗ cũ
                                 mr.Anchored = true
-                                
-                                -- Giả lập nhấp chuột liên tục kích hoạt la bàn tại gốc cây để hoàn thành Quest
-                                for i = 1, 5 do
-                                    pcall(function() hc:Activate() end)
-                                    task.wait(0.1)
-                                end
-                                
+                                task.wait(0.2)
                                 mr.Anchored = false
                             end
                         end
@@ -579,7 +541,7 @@ tab3:CreateToggle({
                 end
             end)
         else
-            -- Đảm bảo mở khóa chân hoàn toàn khi người chơi TẮT tính năng
+            -- Giải phóng hoàn toàn nhân vật khi người chơi TẮT tính năng
             pcall(function()
                 local char = pObj.Character
                 if char and char:FindFirstChild("HumanoidRootPart") then
@@ -589,6 +551,7 @@ tab3:CreateToggle({
         end
     end
 })
+
 
 -- ====================================================================
 -- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - FIX CHUẨN MINI GAME PULL IT
