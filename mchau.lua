@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN GỌN NHẸ SIÊU TỐC] ÉP THEO KIM ĐỎ VÀ KHÓA ID CÂY CHỐNG LẶP ĐIỂM
+-- 🌟 NÚT 2: [BẢN SỬA LỖI LOẠN KIM TRẮNG] KHÓA CỨNG HƯỚNG KIM ĐỎ - MỖI CÂY TP ĐÚNG 1 LẦN
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -505,7 +505,7 @@ tab3:CreateToggle({
                 local currentCompassInstance = nil
                 
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.22) -- Nhịp delay nhảy siêu tốc liên tục không khựng
+                    task.wait(0.22) -- Giữ nhịp độ nhảy liên tục không khựng
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
@@ -513,7 +513,7 @@ tab3:CreateToggle({
                     if hum and hum.Health > 0 and rootPart then
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- Kiểm tra la bàn trong balo/trên tay để làm điều kiện chạy
+                        -- Kiểm tra la bàn trong balo hoặc trên tay
                         local hc = pObj.Backpack:FindFirstChild("Compass") or char:FindFirstChild("Compass")
                         if not hc then
                             _G.AutoFlyToCompassDirection = false
@@ -524,7 +524,7 @@ tab3:CreateToggle({
                         if hc.Parent == pObj.Backpack then hum:EquipTool(hc) task.wait(0.1) end
                         if hc.Parent == char then hc:Activate() end
                         
-                        -- Reset danh sách đen khi đổi hoặc mất la bàn cũ
+                        -- Reset danh sách đen vĩnh viễn khi la bàn cũ mất đi để đổi Box
                         if currentCompassInstance ~= hc then
                             if currentCompassInstance ~= nil then blacklistedTreeNames = {} end
                             currentCompassInstance = hc
@@ -537,47 +537,55 @@ tab3:CreateToggle({
                         end
                         
                         if needle then
+                            -- Lắc nhẹ nhân vật để kích thích Server gửi gói tin đồng bộ hướng mới
                             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             
-                            -- 🔥 ĐỒNG BỘ 100% THEO HƯỚNG MŨI TÊN ĐỎ (BỎ QUA ĐUÔI TRẮNG)
-                            local compassDirection = -needle.CFrame.RightVector
-                            local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
-                            
+                            -- 🔥 🔥 THUẬT TOÁN ĐẢO TRỤC THÔNG MINH - CHỐNG NHẦM KIM TRẮNG:
+                            -- Thử nghiệm cả 2 đầu của cây kim để tìm ra đầu nhọn màu đỏ chuẩn xác nhất
+                            local checkVectors = { -needle.CFrame.RightVector, needle.CFrame.RightVector }
                             local bestNextSpawn = nil
                             local maxDistance = 0
                             
-                            -- Quét tìm Spawner thẳng hàng phía trước mặt kim đỏ chỉ
-                            for _, spawner in pairs(allTreeSpawns) do
-                                if spawner and spawner.Parent then
-                                    local treeNameKey = spawner.Parent:GetFullName()
-                                    
-                                    -- CHỐNG TP LẶP: Cấm tuyệt đối quay lại cây đã đi qua [^1]
-                                    if not blacklistedTreeNames[treeNameKey] then
-                                        local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
-                                        local vectorToSpawn = (spawnPos - rootPart.Position)
-                                        local dist = vectorToSpawn.Magnitude
+                            for _, compassVector in pairs(checkVectors) do
+                                local moveDirection = Vector3.new(compassVector.X, 0, compassVector.Z).Unit
+                                
+                                -- Quét tìm Spawner thẳng hàng phía trước mặt mũi kim đỏ
+                                for _, spawner in pairs(allTreeSpawns) do
+                                    if spawner and spawner.Parent then
+                                        local treeNameKey = spawner.Parent:GetFullName()
                                         
-                                        if dist > 50 and dist < 35000 then
-                                            local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
+                                        -- Điểm spawn chưa từng được dịch chuyển tới
+                                        if not blacklistedTreeNames[treeNameKey] then
+                                            local spawnPos = spawner:IsA("Model") and spawner:GetPivot().Position or spawner.Position
+                                            local vectorToSpawn = (spawnPos - rootPart.Position)
+                                            local dist = vectorToSpawn.Magnitude
                                             
-                                            -- Kiểm tra độ thẳng hàng (Góc ngắm hẹp chuẩn 0.90)
-                                            if moveDirection:Dot(dirToSpawn) > 0.90 and dist > maxDistance then
-                                                maxDistance = dist
-                                                bestNextSpawn = spawner
+                                            if dist > 50 and dist < 35000 then
+                                                local dirToSpawn = Vector3.new(vectorToSpawn.X, 0, vectorToSpawn.Z).Unit
+                                                
+                                                -- Khóa góc ngắm thẳng hàng (Dot Product > 0.92)
+                                                if moveDirection:Dot(dirToSpawn) > 0.92 and dist > maxDistance then
+                                                    maxDistance = dist
+                                                    bestNextSpawn = spawner
+                                                end
                                             end
                                         end
                                     end
                                 end
+                                -- Nếu hướng vector này tìm thấy chuỗi cây hợp lệ, khóa trục chạy luôn và bỏ qua hướng ngược lại (đầu trắng)
+                                if bestNextSpawn then break end
                             end
                             
                             -- Thực hiện dịch chuyển tức thời (Snap Teleport) đúng 1 lần/cây
                             if bestNextSpawn then
                                 blacklistedTreeNames[bestNextSpawn.Parent:GetFullName()] = true
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
+                                print("⚡ TP CHUẨN KIM ĐỎ -> Spawner: " .. bestNextSpawn.Parent.Name)
                                 
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
                                 rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.2, 0))
                             else
+                                -- Nếu kim đang xoay dở chưa khóa được cây, nhấp nhô nhẹ để tránh đơ mạng
                                 rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         end
@@ -588,7 +596,6 @@ tab3:CreateToggle({
         end
     end
 })
-
 
 
 
