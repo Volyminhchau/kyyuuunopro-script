@@ -589,11 +589,11 @@ tab3:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ĐẦY ĐỦ DROPDOWN CHỌN CẦN & TOGGLE
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - CHUẨN HÓA THEO MENU GAME
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing = false
-_G.SelectedRod = "Wood Rod"
+_G.SelectedRod = "Wood Rod" -- Đổi lại tên chuẩn 100% theo ảnh của bạn
 
 local tab4 = MainMenu:CreateTab("Fishing 🎣")
 
@@ -621,7 +621,7 @@ tab4:CreateToggle({
             
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.05) -- Tối ưu hóa vòng lặp mượt mà
+                    task.wait(0.04) -- Tốc độ quét tối ưu chống lag
                     
                     local char = pObj.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
@@ -632,7 +632,7 @@ tab4:CreateToggle({
                         local isMinigameActive = false
                         local whiteTargetGui = nil
                         
-                        -- 🌟 BƯỚC 1: QUÉT MINIGAME Ô TRẮNG KHUNG CON CÁ
+                        -- 🌟 BƯỚC 1: QUÉT TRẠNG THÁI MINIGAME KHUNG Ô TRẮNG
                         if pGui then
                             for _, gui in pairs(pGui:GetDescendants()) do
                                 if gui:IsA("TextLabel") and (string.find(string.lower(gui.Text), "pull") or string.find(string.lower(gui.Text), "medium") or string.find(string.lower(gui.Text), "easy") or string.find(string.lower(gui.Text), "fish")) then
@@ -643,7 +643,7 @@ tab4:CreateToggle({
                                 
                                 if isMinigameActive and (gui:IsA("ImageLabel") or gui:IsA("Frame") or gui:IsA("ImageButton")) and gui.Visible and gui.AbsoluteSize.X > 0 then
                                     local gName = string.lower(gui.Name)
-                                    if string.find(gName, "fish") or string.find(gName, "slot") or string.find(gName, "button") or string.find(gName, "highlight") or string.find(gName, "bar") then
+                                    if string.find(gName, "fish") or string.find(gName, "slot") or string.find(gName, "button") or string.find(gName, "highlight") then
                                         if gui.BackgroundColor3.R > 0.9 and gui.BackgroundColor3.G > 0.9 and gui.BackgroundColor3.B > 0.9 then
                                             whiteTargetGui = gui break
                                         end
@@ -670,60 +670,46 @@ tab4:CreateToggle({
                                     whiteTargetGui:Activate()
                                 end
                             end)
-                            task.wait(0.04)
+                            task.wait(0.05)
                         
-                        -- 🌟 BƯỚC 3: TỰ ĐỘNG TRANG BỊ CẦN CÂU VÀ THẢ DÂY
+                        -- 🌟 BƯỚC 3: LOGIC QUĂNG DÂY VÀ CANH GIẬT CẦN TỰ ĐỘNG KHÔNG PHỤ THUỘC BACKPACK
                         else
-                            -- SỬA LỖI LẤY CẦN: Kiểm tra và tự động lôi cần ra tay bằng hàm chuẩn của Roblox Humanoid
-                            local holdingRod = char:FindFirstChildOfClass("Tool")
-                            if not holdingRod or not string.find(string.lower(holdingRod.Name), string.lower(_G.SelectedRod)) then
-                                local targetRodInBackpack = pObj.Backpack:FindFirstChild(_G.SelectedRod)
-                                if targetRodInBackpack then
-                                    hum:EquipTool(targetRodInBackpack) -- Lệnh bắt buộc để ép nhân vật cầm cần câu lên tay
-                                    task.wait(0.4)
+                            -- Dò tìm thực thể phao câu của bạn ở Workspace gần nhân vật
+                            local myBobber = nil
+                            for _, b in pairs(workspace:GetDescendants()) do
+                                if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure")) then
+                                    if (mr.Position - b.Position).Magnitude < 80 then
+                                        myBobber = b break
+                                    end
                                 end
                             end
                             
-                            holdingRod = char:FindFirstChildOfClass("Tool")
-                            if holdingRod and string.find(string.lower(holdingRod.Name), string.lower(_G.SelectedRod)) then
-                                -- SỬA LỖI DÒ PHAO: Quét sâu trong toàn bộ Workspace (Descendants) bao gồm các thư mục ẩn chứa thực thể câu cá
-                                local myBobber = nil
-                                for _, b in pairs(workspace:GetDescendants()) do
-                                    if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure")) then
-                                        if (mr.Position - b.Position).Magnitude < 80 then
-                                            myBobber = b break
-                                        end
-                                    end
+                            -- Trường hợp A: ĐÃ QUĂNG DÂY (Có phao dưới nước) -> Đợi cá cắn ngầm qua hệ thống vật lý phao
+                            if myBobber then
+                                local fishBiting = false
+                                if myBobber.AssemblyLinearVelocity.Y < -2.5 or math.abs(myBobber.AssemblyLinearVelocity.Y) > 4 then
+                                    fishBiting = true
+                                end
+                                if myBobber:GetAttribute("Biting") == true or myBobber:GetAttribute("State") == "Bite" then
+                                    fishBiting = true
                                 end
                                 
-                                -- ĐÃ THẢ DÂY -> Chờ tín hiệu cá cắn câu dựa vào chuyển động rung vật lý hoặc thuộc tính của game
-                                if myBobber then
-                                    local fishBiting = false
-                                    -- Theo dõi vận tốc đa hướng của phao câu khi bị kéo thụt hoặc giật lắc
-                                    if math.abs(myBobber.AssemblyLinearVelocity.Y) > 2.5 or myBobber.AssemblyLinearVelocity.Magnitude > 4 then
-                                        fishBiting = true
-                                    end
-                                    if myBobber:GetAttribute("Biting") == true or myBobber:GetAttribute("State") == "Bite" then
-                                        fishBiting = true
-                                    end
-                                    
-                                    -- Nếu cá cắn câu -> Click chuột trái để Giật cần mở Minigame!
-                                    if fishBiting then
-                                        pcall(function()
-                                            vU:CaptureController()
-                                            vU:ClickButton1(Vector2.new(9999, 9999))
-                                        end)
-                                        task.wait(1.0)
-                                    end
-                                    
-                                -- CHƯA THẢ DÂY -> Tự động Click chuột trái quăng cần câu xuống nước
-                                else
+                                -- Nếu đúng là cá cắn câu -> Click chuột trái để Giật cần mở minigame!
+                                if fishBiting then
                                     pcall(function()
                                         vU:CaptureController()
                                         vU:ClickButton1(Vector2.new(9999, 9999))
                                     end)
-                                    task.wait(1.8) -- Thời gian chờ phao bay ra xa và rơi ổn định xuống nước
+                                    task.wait(1.2) -- Đợi giao diện UI minigame hiện lên ổn định
                                 end
+                                
+                            -- Trường hợp B: CHƯA QUĂNG DÂY (Không thấy phao) -> Click chuột tự quăng dây câu
+                            else
+                                pcall(function()
+                                    vU:CaptureController()
+                                    vU:ClickButton1(Vector2.new(9999, 9999))
+                                end)
+                                task.wait(1.8) -- Thời gian delay an toàn để phao rơi xuống nước ổn định
                             end
                         end
                     end
@@ -732,7 +718,6 @@ tab4:CreateToggle({
         end
     end
 })
-
 
 
 
