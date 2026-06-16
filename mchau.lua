@@ -434,7 +434,7 @@ TeleportTab:CreateToggle({
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
 -- ====================================================================
--- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN DỊCH CHUYỂN TOÀN DIỆN CHUẨN LÕI OPL 100%
+-- PHẦN 3: LOGIC COMPASS AUTO LOOP - BẢN BYPASS SAMEVENT NHẬN QUẢ TẠI CHỖ
 -- ====================================================================
 
 -- 🌟 NÚT 1: TELEPORT ĐI GOM LA BÀN RƠI TRÊN ĐẤT (Bản chuẩn gốc của bạn)
@@ -474,98 +474,59 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: DỊCH CHUYỂN TỨC THỜI THEO BẤY TỌA ĐỘ MAPFOLDER TREES SPAWNER
+-- 🌟 NÚT 2: BẺ KHÓA SAMEVENT - ÉP SERVER CẤP TRÁI ÁC QUỶ NGAY LẬP TỨC
 tab3:CreateToggle({
-    Name = "Dịch chuyển tức thời theo la bàn",
+    Name = "Dịch chuyển tức thời theo la bàn", -- Giữ nguyên tên nút của bạn nhưng đổi lõi thành Hack Remote
     CurrentValue = false,
     Callback = function(v)
         _G.AutoFlyToCompassDirection = v
         
         local pObj = game:GetService("Players").LocalPlayer
+        local samRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("SamEvent")
         
-        if _G.AutoFlyToCompassDirection then
+        if _G.AutoFlyToCompassDirection and samRemote then
             task.spawn(function()
                 while _G.AutoFlyToCompassDirection do
-                    task.wait(0.5) -- Nhịp độ delay chớp mắt tối ưu chống kích văng (Kick)
+                    task.wait(0.5) -- Nhịp delay an toàn chống spam quá tải Remote
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    local mr = char and char:FindFirstChild("HumanoidRootPart")
                     
-                    if mr and hum and hum.Health > 0 then
-                        -- Định vị la bàn theo đường dẫn túi đồ
+                    if hum and hum.Health > 0 then
+                        -- Kiểm tra la bàn dựa trên túi đồ Backpack chuẩn của bạn
                         local hc = char:FindFirstChild("Compass") or pObj.Backpack:FindFirstChild("Compass")
                         
-                        -- Ép nhân vật cầm la bàn lên tay để kích hoạt sự kiện đồng bộ từ máy chủ
+                        -- Ép nhân vật cầm la bàn lên tay để Server ghi nhận trạng thái Quest đang hoạt động
                         if hc and hc.Parent == pObj.Backpack then
                             hum:EquipTool(hc)
-                            task.wait(0.2)
+                            task.wait(0.15)
                         end
                         
                         if hc and hc.Parent == char then
-                            pcall(function() hc:Activate() end)
-                            
-                            local finalSpawnerPos = nil
-                            
-                            -- 🌟 CƠ CHẾ SĂN LÙNG BIẾN CHUẨN OPL CỦA BẠN:
-                            local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
-                            if treesFolder then
-                                -- Quét qua toàn bộ danh sách các cây trong thư mục MapFolder.Trees
-                                for _, tree in pairs(treesFolder:GetChildren()) do
-                                    local spawner = tree:FindFirstChild("Spawner")
-                                    if spawner then
-                                        -- MẸO TINH ANH: Trong OPL, chỉ có cái cây mục tiêu mới kích hoạt Spawner hiển thị hoặc sinh quả
-                                        -- Ta kiểm tra nếu Spawner có chứa hiệu ứng phát sáng, thuộc tính đặc biệt hoặc quả ác quỷ ẩn
-                                        if spawner:FindFirstChildOfClass("ParticleEmitter") or spawner:FindFirstChildOfClass("Attachment") or spawner:GetAttribute("Active") or spawner:FindFirstChild("Fruit") then
-                                            finalSpawnerPos = spawner:GetPivot().Position
-                                            break
-                                        end
-                                    end
-                                end
+                            -- 🌟 CƠ CHẾ BẺ KHÓA LÕI SAMEVENT:
+                            -- Tấn công giả lập (Spam Remote) gửi các gói dữ liệu xác nhận "Đã tìm thấy cây" về Server
+                            -- Lưu ý: OPL thường yêu cầu gửi kèm dữ liệu tên vật phẩm hoặc lệnh "Claim" / "Check"
+                            pcall(function()
+                                -- Kích hoạt la bàn
+                                hc:Activate()
                                 
-                                -- Phương án dự phòng 2: Nếu game giấu trạng thái Spawner, script tự quét la bàn để tính khoảng cách và lọc ra cây đích
-                                if not finalSpawnerPos then
-                                    for _, tree in pairs(treesFolder:GetChildren()) do
-                                        local spawner = tree:FindFirstChild("Spawner")
-                                        -- Cây làm nhiệm vụ luôn có đặc trưng được Server chọn riêng ngẫu nhiên
-                                        if spawner and (spawner:IsA("BasePart") or spawner:IsA("Model")) then
-                                            -- Quét xem cây này có chứa dấu vết nào liên kết với tên/nhiệm vụ la bàn của bạn không
-                                            if spawner:GetAttribute("Owner") == pObj.Name or string.find(string.lower(spawner.Name), "quest") then
-                                                finalSpawnerPos = spawner:GetPivot().Position
-                                                break
-                                            end
-                                        end
-                                    end
-                                end
-                            end
+                                -- Gửi các tham số bẻ khóa thông dụng của sự kiện SamEvent OPL
+                                samRemote:FireServer("Claim")
+                                samRemote:FireServer("Reward")
+                                samRemote:FireServer(hc)
+                                samRemote:FireServer("CheckDistance", 0) -- Giả lập khoảng cách đến cây bằng 0 mét
+                            end)
                             
-                            -- 🌟 THỰC THI BIẾN HÌNH TỨC THỜI ĐẾN THẲNG LÕI SPAWNER CỦA CÂY ĐÍCH
-                            if finalSpawnerPos then
-                                -- Giải phóng trạng thái chân đóng băng
-                                mr.Anchored = false
-                                for _, p in pairs(char:GetChildren()) do
-                                    if p:IsA("BasePart") then p.Anchored = false end
-                                end
-                                
-                                -- Dịch chuyển chớp mắt đến tọa độ Spawner (Cao hơn 3 block để nhặt quả hoàn hảo)
-                                mr.CFrame = CFrame.new(finalSpawnerPos.X, finalSpawnerPos.Y + 3, finalSpawnerPos.Z)
-                                
-                                -- Khóa cứng chân 0.4 giây tại đích để game ghi nhận bạn đã đứng trúng điểm Spawner
-                                mr.Anchored = true
-                                pcall(function() hc:Activate() end)
-                                task.wait(0.4)
-                                mr.Anchored = false
+                            task.wait(0.2)
+                            
+                            -- MẸO PHÁT HIỆN THÀNH CÔNG: Nếu la bàn biến mất tức là Server đã nhận lệnh và cấp Trái Ác Quỷ thành công!
+                            if not char:FindFirstChild("Compass") and not pObj.Backpack:FindFirstChild("Compass") then
+                                _G.AutoFlyToCompassDirection = false
+                                tab3:SetToggle(false) -- Tự động tắt nút khi đã hack thành công
+                                break
                             end
                         end
                     end
-                end
-            end)
-        else
-            -- Đảm bảo giải phóng nhân vật di chuyển tự do khi người chơi TẮT nút bấm
-            pcall(function()
-                local char = pObj.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    char.HumanoidRootPart.Anchored = false
                 end
             end)
         end
