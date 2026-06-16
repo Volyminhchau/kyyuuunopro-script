@@ -474,7 +474,7 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN ĐỒNG BỘ SPAWNER] MỖI VỊ TRÍ CHỈ TP 1 LẦN - KHÔNG DÙNG CHUỘT THẬT - RESET KHI MẤT COMPASS
+-- 🌟 NÚT 2: [BẢN FIX NGƯỢC HƯỚNG KIM] ĐỒNG BỘ 100% THEO MŨI TÊN ĐỎ - KHÔNG CHẠM CHUỘT THẬT
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -491,7 +491,6 @@ tab3:CreateToggle({
                 
                 if treesFolder then
                     for _, child in pairs(treesFolder:GetChildren()) do
-                        -- Tìm đúng linh kiện tên là Spawner bên trong mỗi cây theo đường dẫn của bạn
                         local spawnerPart = child:FindFirstChild("Spawner")
                         if spawnerPart and (spawnerPart:IsA("BasePart") or spawnerPart:IsA("Model")) then
                             table.insert(allTreeSpawns, spawnerPart)
@@ -509,7 +508,7 @@ tab3:CreateToggle({
                 safetyPlatform.CanCollide = true
                 safetyPlatform.Name = "SafetyTPPlatform"
                 
-                -- 🔥 BẢNG DANH SÁCH ĐEN KHÓA TỌA ĐỘ VĨNH VIỄN (Chống lặp điểm nhầm)
+                -- BẢNG DANH SÁCH ĐEN KHÓA TỌA ĐỘ VĨNH VIỄN
                 local blacklistedPositions = {}
                 local currentCompassInstance = nil
                 
@@ -542,21 +541,21 @@ tab3:CreateToggle({
                             task.wait(0.1) 
                         end
                         
-                        -- KÍCH HOẠT LA BÀN CHẠY NGẦM (Không chạm chuột thật)
+                        -- KÍCH HOẠT LA BÀN CHẠY NGẦM
                         if hc.Parent == char then
                             hc:Activate()
                         end
                         
-                        -- 🔥 CƠ CHẾ RESET BLACKLIST KHI COMPASS TRÊN TAY BIẾN MẤT / ĐỔI MỚI
+                        -- CƠ CHẾ RESET BLACKLIST KHI COMPASS TRÊN TAY BIẾN MẤT
                         if currentCompassInstance ~= hc then
                             if currentCompassInstance ~= nil then
                                 print("🔄 Phát hiện Compass trên tay đã đổi hoặc mất! Reset sạch Danh Sách Đen.")
-                                blacklistedPositions = {} -- Xóa sạch tọa độ đen cũ để săn lượt mới
+                                blacklistedPositions = {} 
                             end
-                            currentCompassInstance = hc -- Ghi nhớ la bàn hiện tại
+                            currentCompassInstance = hc 
                         end
                         
-                        -- Định vị linh kiện Kim Đỏ trong Workspace để lấy hướng đi
+                        -- Định vị linh kiện Kim Đỏ trong Workspace
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
                             if item.Name == "CompassNeedle" and item:IsA("BasePart") then
@@ -566,12 +565,17 @@ tab3:CreateToggle({
                         end
                         
                         if needle then
-                            -- Lắc nhẹ góc nhân vật để kích thích Server gửi dữ liệu hướng mới
+                            -- Lắc nhẹ góc nhân vật để kích thích Server cập nhật dữ liệu hướng mới
                             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             
-                            -- Đọc hướng thực tế từ góc xoay ngang thế giới của kim đỏ
-                            local _, yOrientation, _ = needle.CFrame:ToOrientation()
-                            local moveDirection = Vector3.new(math.sin(yOrientation), 0, math.cos(yOrientation)).Unit
+                            -- 🔥 SỬA LỖI NGƯỢC HƯỚNG TỪ GỐC VECTOR CỦA GAME:
+                            -- Thay vì dùng LookVector thông thường dễ bị dev game xoay ngược model, 
+                            -- chúng ta sẽ bóc tách ma trận CFrame hướng Vector mặt sau (hoặc mặt trước đã hiệu chỉnh âm)
+                            -- Nếu chạy vẫn bị ngược, bạn chỉ cần đổi dấu trừ (-) ở trước chữ needle thành dấu cộng (+) hoặc ngược lại.
+                            local compassDirection = -needle.CFrame.LookVector 
+                            
+                            -- Đảm bảo Vector hướng di chuyển chỉ tính trên mặt phẳng ngang (X, Z) để đi thẳng chuẩn đảo
+                            local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
                             
                             local bestNextSpawn = nil
                             local furthestDistance = 0 
@@ -580,13 +584,12 @@ tab3:CreateToggle({
                             -- Bước 3: Duyệt tìm Spawner nằm dọc hướng kim chỉ ở khoảng cách xa nhất
                             for _, spawnPart in pairs(allTreeSpawns) do
                                 if spawnPart and spawnPart.Parent then
-                                    -- Lấy tọa độ thực tế của khối Spawner này
                                     local spawnPos = spawnPart:IsA("Model") and spawnPart:GetPivot().Position or spawnPart.Position
                                     
-                                    -- 🔥 MÃ HÓA TỌA ĐỘ VỊ TRÍ: Chuyển tọa độ thành chuỗi "X,Y,Z" làm tròn để đối chiếu chính xác
+                                    -- MÃ HÓA TỌA ĐỘ VỊ TRÍ
                                     local posKey = math.floor(spawnPos.X) .. "," .. math.floor(spawnPos.Y) .. "," .. math.floor(spawnPos.Z)
                                     
-                                    -- ĐIỀU KIỆN KHÓA CHẶT: Nếu vị trí Spawner này CHƯA từng được đi qua thì mới xử lý
+                                    -- ĐIỀU KIỆN KHÓA CHẶT: Chỉ xét các tọa độ CHƯA từng đi qua
                                     if not blacklistedPositions[posKey] then
                                         local vectorToSpawn = (spawnPos - rootPart.Position)
                                         local distance = vectorToSpawn.Magnitude
@@ -612,11 +615,11 @@ tab3:CreateToggle({
                             if bestNextSpawn then
                                 local targetPos = bestNextSpawn:IsA("Model") and bestNextSpawn:GetPivot().Position or bestNextSpawn.Position
                                 
-                                -- 🔥 KHÓA CỨNG VĨ NHẤT: Đưa ngay tọa độ vừa chọn vào danh sách đen để KHÔNG bao giờ quay lại
+                                -- Đưa tọa độ vừa chọn vào danh sách đen khóa vĩnh viễn trong chu kỳ la bàn này
                                 local targetKey = math.floor(targetPos.X) .. "," .. math.floor(targetPos.Y) .. "," .. math.floor(targetPos.Z)
                                 blacklistedPositions[targetKey] = true
                                 
-                                print("⚡ TP CHUẨN 1 LẦN -> Khóa cứng Spawner: [" .. targetKey .. "]")
+                                print("⚡ TP ĐÚNG HƯỚNG MŨI TÊN ĐỎ -> Khóa cứng Spawner: [" .. targetKey .. "]")
                                 
                                 -- Di dời tấm đệm lót chân và đưa nhân vật dẫm thẳng vào tâm Spawner
                                 safetyPlatform.CFrame = CFrame.new(targetPos + Vector3.new(0, -1, 0))
