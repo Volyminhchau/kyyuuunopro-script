@@ -474,7 +474,9 @@ tab3:CreateToggle({
     end
 })
 
--- 🌟 NÚT 2: [BẢN ÉP CẬP NHẬT KIM] TP QUA CÁC CÂY THEO HƯỚNG KIM ĐỎ - KHÔNG KHÓA CỨNG
+-- 🌟 NÚT 2: [BẢN TỰ ĐỘNG BẤM GIỮ CHUỘT] TP QUA CÁC CÂY TRONG MAPFOLDER - ĐÃ BỎ KHÓA CỨNG
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
 tab3:CreateToggle({
     Name = "Dịch chuyển tức thời theo la bàn",
     CurrentValue = false,
@@ -485,7 +487,7 @@ tab3:CreateToggle({
         
         if _G.AutoFlyToCompassDirection then
             task.spawn(function()
-                -- Bước 1: Thu thập trước danh sách cây từ MapFolder
+                -- Bước 1: Thu thập trước danh sách tất cả các cây từ MapFolder của game
                 local allTrees = {}
                 local treesFolder = workspace:FindFirstChild("MapFolder") and workspace.MapFolder:FindFirstChild("Trees")
                 
@@ -503,7 +505,7 @@ tab3:CreateToggle({
                     print("❌ Không tìm thấy đường dẫn workspace.MapFolder.Trees!")
                 end
                 
-                -- Tạo tấm đệm tàng hình đỡ chân chống rơi nước
+                -- Tạo tấm đệm tàng hình lót chân chống rơi xuống biển khi di chuyển
                 local safetyPlatform = Instance.new("Part")
                 safetyPlatform.Size = Vector3.new(6, 1, 6)
                 safetyPlatform.Transparency = 1
@@ -513,19 +515,22 @@ tab3:CreateToggle({
                 
                 local lastVisitedTree = nil
                 
+                -- 🔥 KÍCH HOẠT GIỮ CHUỘT TRÁI: Đè chuột ảo để hiện kim đỏ la bàn liên tục
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1) 
+                
                 while _G.AutoFlyToCompassDirection do
-                    -- Tăng thời gian chờ lên một chút để server kịp gửi dữ liệu hướng mới
-                    task.wait(0.5) 
+                    task.wait(0.4) -- Giữ nhịp độ vừa phải để server đồng bộ hướng
                     
                     local char = pObj.Character
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if hum and hum.Health > 0 and rootPart then
+                        -- Đưa tấm đệm đi theo dưới chân nhân vật
                         safetyPlatform.Parent = workspace
                         safetyPlatform.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
                         
-                        -- Bước 2: Dò tìm linh kiện Kim Đỏ (CompassNeedle)
+                        -- Bước 2: Dò tìm linh kiện Kim Đỏ (CompassNeedle) trong Workspace
                         local needle = nil
                         for _, item in pairs(workspace:GetDescendants()) do
                             if item.Name == "CompassNeedle" and item:IsA("BasePart") then
@@ -535,26 +540,25 @@ tab3:CreateToggle({
                         end
                         
                         if needle then
-                            -- 🔥 CƠ CHẾ ÉP CẬP NHẬT KIM LA BÀN:
-                            -- Xoay nhẹ góc CFrame của nhân vật một khoảng rất nhỏ để đánh lừa game cập nhật hướng Camera/La bàn
-                            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(1), 0)
+                            -- Ép góc nhìn nhân vật xoay nhẹ để kích thích la bàn tính toán hướng đi mới
+                            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(2), 0)
                             task.wait(0.05)
                             
-                            -- Đọc hướng thực của mũi kim đỏ sau khi đã ép cập nhật
+                            -- Đọc hướng thực của mũi kim đỏ
                             local compassDirection = needle.CFrame.LookVector
                             local moveDirection = Vector3.new(compassDirection.X, 0, compassDirection.Z).Unit
                             
                             local bestNextTree = nil
-                            local minAngle = 0.94 -- Mở rộng góc ngắm nhẹ (khoảng 20 độ) để nhận diện nhạy hơn khi kim đang xoay dò
-                            local closestDistance = 999999
+                            local minAngle = 0.95 -- Khóa góc thẳng hướng theo mũi tên
+                            local closestDistance = 999999 -- Tầm quét cây vô hạn xuyên các hòn đảo
                             
-                            -- Bước 3: Duyệt danh sách cây theo hướng kim chỉ
+                            -- Bước 3: Duyệt danh sách cây trong MapFolder theo hướng kim chỉ
                             for _, treePart in pairs(allTrees) do
                                 if treePart and treePart.Parent and treePart ~= lastVisitedTree then
                                     local vectorToTree = (treePart.Position - rootPart.Position)
                                     local distance = vectorToTree.Magnitude
                                     
-                                    if distance > 35 then 
+                                    if distance > 35 then -- Bỏ qua cái cây đang đứng
                                         local directionToTree = Vector3.new(vectorToTree.X, 0, vectorToTree.Z).Unit
                                         local dotProduct = moveDirection:Dot(directionToTree)
                                         
@@ -568,28 +572,27 @@ tab3:CreateToggle({
                                 end
                             end
                             
-                            -- Bước 4: Thực hiện dịch chuyển tự do
+                            -- Bước 4: Thực hiện dịch chuyển tự do đến ngọn cây tiếp theo
                             if bestNextTree then
                                 lastVisitedTree = bestNextTree
-                                print("🌳 Đã cập nhật hướng kim! TP tới cây: " .. bestNextTree.Parent.Name)
+                                print("🌳 Nhảy tự do theo kim đỏ tới cây tiếp theo: " .. bestNextTree.Parent.Name)
                                 
                                 safetyPlatform.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(0, 4.5, 0))
                                 rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(0, 5.5, 0))
                                 task.wait(0.1)
                                 
-                                -- Lướt hitbox quanh cây để kích hoạt sự kiện nhận Box
+                                -- Quét hitbox vòng tròn sát thân cây để kích hoạt vùng đổi quà của SamQuest
                                 for i = 1, 4 do
                                     local angle = (i / 4) * math.pi * 2
                                     rootPart.CFrame = CFrame.new(bestNextTree.Position + Vector3.new(math.cos(angle) * 2.5, 3, math.sin(angle) * 2.5))
                                     task.wait(0.03)
                                 end
                             else
-                                -- Nếu kim chưa chịu xoay, tiến hành dịch chuyển nhấp nhô nhẹ tại chỗ để ép kích hoạt gói tin mạng (Network Ownership)
-                                rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.1, 0)
-                                print("🔍 Kim la bàn chưa xoay, đang ép đồng bộ dữ liệu với Server...")
+                                -- Nếu kim đang xoay dở, nhấp nhô nhẹ tại chỗ để tránh lỗi đứng im đơ mạng
+                                rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 0.05, 0)
                             end
                         else
-                            print("⚠️ Không tìm thấy CompassNeedle!")
+                            print("⚠️ Không tìm thấy CompassNeedle, hãy đảm bảo la bàn đang hiển thị trên màn hình!")
                         end
                         
                         -- Bước 5: Kiểm tra điều kiện xuất hiện Box DF xung quanh
@@ -604,7 +607,9 @@ tab3:CreateToggle({
                         end
                         
                         if successClaim then
-                            print("🎉 Đã tìm thấy cây đích và nhận được Box DF.")
+                            print("🎉 Quá tuyệt vời! Đã lấy thành công Box DF.")
+                            -- 🔥 NHẢ CHUỘT TRÁI: Giải phóng chuột khi đã nhận được rương
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                             if safetyPlatform then safetyPlatform:Destroy() end
                             _G.AutoFlyToCompassDirection = false
                             if tab3.SetToggle then tab3:SetToggle(false) end
@@ -612,6 +617,8 @@ tab3:CreateToggle({
                         end
                     end
                 end
+                -- Tự động nhả chuột ảo nếu bạn chủ động tắt nút gạt bằng tay
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                 if safetyPlatform then safetyPlatform:Destroy() end
             end)
         end
