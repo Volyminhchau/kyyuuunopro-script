@@ -608,7 +608,7 @@ tab3:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ĐỒNG BỘ CẤU TRÚC DEX EXPLORER
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ENGINE CHỐNG TỰ GIẬT SAI THỜI ĐIỂM
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing, _G.SelectedRod = false, "Wood Rod"
@@ -625,7 +625,7 @@ tab4:CreateToggle({
     Callback = function(v)
         _G.AutoFishing = v
         if not _G.AutoFishing then return end
-        local ClickLock, MiniHandled = false, false
+        local ClickLock, MiniHandled, CastTime = false, false, 0
         
         task.spawn(function()
             while _G.AutoFishing do task.wait(0.04)
@@ -667,44 +667,41 @@ tab4:CreateToggle({
                         local MyRope = nil
                         for _, Obj in pairs(workspace:GetDescendants()) do
                             if Obj:IsA("BasePart") and string.find(Obj.Name, "FishingRope") then
-                                -- Kiểm tra xem sợi dây câu này có nằm gần nhân vật của bạn không (bán kính 60 studs)
                                 if (Root.Position - Obj.Position).Magnitude < 60 then
-                                    MyRope = Obj 
-                                    break
+                                    MyRope = Obj break
                                 end
                             end
                         end
                         
-                        -- TRÌNH TỰ A: KHÔNG THẤY DÂY CÂU FISHINGROPE -> CLICK THẢ CẦN (CAST)
+                        -- TRÌNH TỰ A: KHÔNG THẤY DÂY CÂU -> CLICK THẢ CẦN (CAST)
                         if not MyRope then
                             ClickLock = true
                             pcall(function() Rod:Activate() warn("🚀 [Dex Engine] Click THẢ CẦN!") end)
-                            task.wait(2.2) -- Khóa luồng chờ game sinh ra Folder chứa FishingRope thành công
+                            CastTime = os.clock() -- Ghi nhận thời gian vừa thả câu thành công
+                            task.wait(2.2) -- Khóa luồng chờ game tạo xong thực thể FishingRope dưới nước
                             ClickLock = false
                             
-                        -- TRÌNH TỰ B: ĐÃ TÌM THẤY DÂY CÂU FISHINGROPE -> RÌNH CÁ CẮN ĐỂ GIẬT CẦN (REEL)
+                        -- TRÌNH TỰ B: ĐÃ TÌM THẤY DÂY CÂU -> RÌNH CÁ CẮN ĐỂ CLICK GIẬT CẦN (REEL)
                         else
-                            local Biting = MyRope:GetAttribute("Biting") == true
-                            
-                            -- Quét bong bóng nước đổi màu xanh lá phát ra ngay tại sợi FishingRope này
-                            if not Biting then
-                                for _, Particle in pairs(MyRope:GetChildren()) do
-                                    if (Particle:IsA("ParticleEmitter") or Particle:IsA("Sparkles")) and Particle.Color.Keypoints.Value.G > 0.65 then
-                                        Biting = true break
+                            -- CHỐNG LỖI TỰ GIẬT: Phải đợi ít nhất 2.5 giây sau khi thả câu thì mới cho phép dò cá cắn
+                            if (os.clock() - CastTime) > 2.5 then
+                                local Biting = MyRope:GetAttribute("Biting") == true
+                                
+                                -- Nhận diện hiệu ứng hạt đổi màu xanh lá phát ra tại sợi FishingRope này
+                                if not Biting then
+                                    for _, Particle in pairs(MyRope:GetChildren()) do
+                                        if (Particle:IsA("ParticleEmitter") or Particle:IsA("Sparkles")) and Particle.Color.Keypoints.Value.G > 0.65 then
+                                            Biting = true break
+                                        end
                                     end
                                 end
-                            end
-                            
-                            -- Dự phòng quét vật lý giật chìm sợi dây FishingRope
-                            if not Biting and MyRope.AssemblyLinearVelocity.Y < -1.6 then
-                                Biting = true
-                            end
-                            
-                            -- CÁ CẮN CÂU -> SẴN SÀNG CLICK GIẬT CẦN LÊN
-                            if Biting then
-                                ClickLock = true
-                                pcall(function() Rod:Activate() warn("⚡ [Dex Engine] Click GIẬT CẦN!") end)
-                                task.wait(1.5) ClickLock = false
+                                
+                                -- CÁ CẮN CÂU THẬT SỰ -> TIẾN HÀNH CLICK GIẬT CẦN LÊN
+                                if Biting then
+                                    ClickLock = true
+                                    pcall(function() Rod:Activate() warn("⚡ [Dex Engine] Click GIẬT CẦN!") end)
+                                    task.wait(1.5) ClickLock = false
+                                end
                             end
                         end
                     end
@@ -713,5 +710,4 @@ tab4:CreateToggle({
         end)
     end
 })
-
 
