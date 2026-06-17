@@ -645,7 +645,7 @@ tab4:CreateToggle({
             
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.3) -- TỐI ƯU CHỐNG LAG: Quét chậm lại (0.3 giây/lần) giúp giải phóng 300% tài nguyên CPU
+                    task.wait(0.1) -- Vòng lặp tuần hoàn an toàn chống lag
                     
                     local char = pObj.Character
                     local mr = char and char:FindFirstChild("HumanoidRootPart")
@@ -680,18 +680,12 @@ tab4:CreateToggle({
                             
                             holdingRod = char:FindFirstChildOfClass("Tool")
                             if holdingRod and string.lower(holdingRod.Name) == string.lower(_G.SelectedRod) then
-                                
-                                -- 🕵️ CHỐNG LAG ĐỘT PHÁ: Tìm dây câu FishingRope ở các Model/Folder lớp ngoài thay vì GetDescendants toàn bản đồ
+                                -- Quét tìm thực thể Phao câu ẩn của bạn trong Workspace
                                 local myBobber = nil
-                                for _, b in pairs(workspace:GetChildren()) do
-                                    -- Quét tìm Model chứa mã người chơi hoặc chứa chữ Rope/Phao/Bobber/Fishing
-                                    if b:IsA("BasePart") or b:IsA("Model") or b:IsA("Folder") then
-                                        local targetPart = b:IsA("BasePart") and b or b:FindFirstChildOfClass("BasePart") or b:FindFirstChild("FishingRope", true)
-                                        if targetPart and (string.find(string.lower(b.Name), "rope") or string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "fishing")) then
-                                            if (mr.Position - targetPart.Position).Magnitude < 80 then
-                                                myBobber = targetPart 
-                                                break
-                                            end
+                                for _, b in pairs(workspace:GetDescendants()) do
+                                    if b:IsA("BasePart") and (string.find(string.lower(b.Name), "bobber") or string.find(string.lower(b.Name), "phao") or string.find(string.lower(b.Name), "hook") or string.find(string.lower(b.Name), "lure") or string.find(string.lower(b.Name), "fishing")) then
+                                        if (mr.Position - b.Position).Magnitude < 80 then
+                                            myBobber = b break
                                         end
                                     end
                                 end
@@ -699,22 +693,18 @@ tab4:CreateToggle({
                                 -- TRƯỜNG HỢP A: ĐÃ THẢ DÂY CÂU -> Đợi hiệu ứng đốm xanh lá bùng lên để giật cần
                                 if myBobber then
                                     local fishBiting = false
-                                    
-                                    -- CHỐNG LAG: Chỉ quét các hạt ParticleEmitter nằm NGAY BÊN TRONG thực thể dây câu/phao câu này
-                                    for _, obj in pairs(myBobber:GetChildren()) do
-                                        if obj:IsA("ParticleEmitter") or obj:IsA("Sparkles") then
+                                    for _, obj in pairs(workspace:GetDescendants()) do
+                                        if (obj:IsA("ParticleEmitter") or obj:IsA("Sparkles")) and (obj:IsDescendantOf(myBobber) or (obj.Parent:IsA("BasePart") and (obj.Parent.Position - myBobber.Position).Magnitude < 10)) then
                                             -- Thuật toán phân tích dải màu của hệ thống hạt, lọc đúng màu xanh lá (Green > 0.65)
                                             if obj:IsA("ParticleEmitter") and (obj.Color.Keypoints.Value.G > 0.65 and obj.Color.Keypoints.Value.R < 0.45) then
-                                                fishBiting = true 
-                                                break
+                                                fishBiting = true break
                                             elseif obj:IsA("Sparkles") and (obj.SparkleColor.G > 0.65 and obj.SparkleColor.R < 0.45) then
-                                                fishBiting = true 
-                                                break
+                                                fishBiting = true break
                                             end
                                         end
                                     end
                                     
-                                    -- Dự phòng thêm cơ chế vật lý hoặc thuộc tính ẩn Biting của game gốc
+                                    -- Dự phòng thêm cơ chế vật lý phao chìm khi cá đớp mồi
                                     if not fishBiting and (myBobber.AssemblyLinearVelocity.Y < -2.2 or myBobber:GetAttribute("Biting") == true) then
                                         fishBiting = true
                                     end
@@ -743,3 +733,4 @@ tab4:CreateToggle({
         end
     end
 })
+
