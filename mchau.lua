@@ -608,7 +608,7 @@ tab3:CreateToggle({
     end
 })
 -- ====================================================================
--- AUTO FISHING V3 - CHUẨN HOÁ NETWORK EVENT (ĐỒNG BỘ THEO ẢNH 100%)
+-- AUTO FISHING V3 - FIX LỖI ĐỒNG BỘ MẠNG KHI BẬT/TẮT LẦN 2
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing, _G.SelectedRod = false, "Wood Rod"
@@ -617,29 +617,9 @@ local Player = game:GetService("Players").LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local FishingRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FishingEvent")
 
--- Công tắc quản lý trạng thái dựa trên tín hiệu Server trả về trong ảnh
-local IsFishing = false   -- Chỉ bật true khi Server phản hồi "FishingLaunched"
-local NeedToReel = false  -- Chỉ bật true khi Server phản hồi "FishingMinigame" (Cá cắn)
-local InMinigame = false
-
--- LẮNG NGHE SỰ KIỆN MẠNG GỐC THEO ĐÚNG SƠ ĐỒ ẢNH BẠN GỬI
-local EventConnection
-EventConnection = FishingRemote.OnClientEvent:Connect(function(Action, ...)
-    if not _G.AutoFishing then return end
-    
-    if Action == "FishingLaunched" then
-        IsFishing = true
-        NeedToReel = false
-        warn("📡 Server: Thả câu thành công! Khóa chặt click, đứng im đợi cá...")
-    elseif Action == "FishingMinigame" then
-        NeedToReel = true
-        warn("📡 Server: CÁ CẮN CÂU! Cho phép giật cần...")
-    elseif Action == "FishingReeled" then
-        IsFishing = false
-        NeedToReel = false
-        warn("📡 Server: Thu cần về.")
-    end
-end)
+-- Các biến công tắc quản lý trạng thái câu thời gian thực
+local IsFishing, NeedToReel, InMinigame = false, false, false
+local EventConnection = nil -- Khởi tạo biến toàn cục chứa kết nối mạng
 
 local tab4 = MainMenu:CreateTab("Fishing 🎣")
 tab4:CreateDropdown({
@@ -651,9 +631,32 @@ tab4:CreateToggle({
     Name = "Tự động Câu Cá", CurrentValue = false,
     Callback = function(v)
         _G.AutoFishing = v
-        if not _G.AutoFishing then if EventConnection then EventConnection:Disconnect() end return end
-        IsFishing, NeedToReel, InMinigame = false, false, false
         
+        -- 🌟 XỬ LÝ KHI NGƯỜI CHƠI TẮT AUTO: Ngắt kết nối và reset trạng thái sạch sẽ
+        if not _G.AutoFishing then 
+            if EventConnection then EventConnection:Disconnect() EventConnection = nil end
+            IsFishing, NeedToReel, InMinigame = false, false, false
+            return 
+        end
+        
+        -- 🌟 XỬ LÝ KHI BẬT AUTO (KỂ CẢ LẦN ĐẦU HAY LẦN 2): Khởi tạo lại cổng lắng nghe
+        if EventConnection then EventConnection:Disconnect() end -- Xóa kết nối cũ nếu có rác
+        
+        EventConnection = FishingRemote.OnClientEvent:Connect(function(Action, ...)
+            if not _G.AutoFishing then return end
+            if Action == "FishingLaunched" then
+                IsFishing, NeedToReel = true, false
+                warn("📡 [Net Engine] Server báo: Thả cần thành công!")
+            elseif Action == "FishingMinigame" then
+                NeedToReel = true
+                warn("📡 [Net Engine] Server báo: CÁ CẮN CÂU!")
+            elseif Action == "FishingReeled" then
+                IsFishing, NeedToReel = false, false
+                warn("📡 [Net Engine] Server báo: Thu hồi dây câu.")
+            end
+        end)
+        
+        -- Chạy vòng lặp cốt lõi xử lý hành động quăng/giật/bấm nút
         task.spawn(function()
             while _G.AutoFishing do task.wait(0.04)
                 local Char = Player.Character
@@ -663,7 +666,7 @@ tab4:CreateToggle({
                 
                 local FishingGui = pGui:FindFirstChild("FishingMinigame")
                 
-                -- 🎯 BƯỚC 1: XỬ LÝ CLICK MINIGAME ICON CÁ CÓ VIỀN TRẮNG (CÁ XỊN XUẤT HIỆN)
+                -- 🎯 BƯỚC 1: XỬ LÝ BẤM Ô ICON CÁ MỤC TIÊU CÓ VIỀN TRẮNG KHI CÓ UI
                 if FishingGui and FishingGui.Enabled then
                     InMinigame = true
                     for _, Btn in pairs(FishingGui:GetDescendants()) do
@@ -674,11 +677,11 @@ tab4:CreateToggle({
                             end
                         end
                     end
-                -- 🎣 BƯỚC 2: LOGIC THẢ CẦN & GIẬT CẦN ĐỒNG BỘ MẠNG TUYỆT ĐỐI
+                -- 🎣 BƯỚC 2: LOGIC CLICK THẢ CẦN & KÉO CẦN DỰA TRÊN EVENT ĐỒNG BỘ
                 else
                     if InMinigame then InMinigame = false IsFishing, NeedToReel = false, false task.wait(1.5) end
                     
-                    -- Tự động lấy cần câu ra tay từ balo
+                    -- Kiểm tra và tự lấy cần câu ra tay nếu đang cầm món khác
                     local Rod = Char:FindFirstChildOfClass("Tool")
                     if not Rod or string.lower(Rod.Name) ~= string.lower(_G.SelectedRod) then
                         if Rod then Rod.Parent = Player.Backpack end
@@ -689,19 +692,19 @@ tab4:CreateToggle({
                     Rod = Char:FindFirstChildOfClass("Tool")
                     if Rod and string.lower(Rod.Name) == string.lower(_G.SelectedRod) then
                         
-                        -- TRÌNH TỰ A: SERVER BÁO CHƯA CÂU (IsFishing == false) -> CLICK THẢ CẦN (CAST)
+                        -- TRÌNH TỰ A: CHƯA THẢ CÂU (IsFishing == false) -> CLICK THẢ CẦN!
                         if not IsFishing and not NeedToReel then
-                            IsFishing = true -- Khóa ảo lập tức chặn spam click, đợi "FishingLaunched" thật từ Server ghi đè
-                            pcall(function() Rod:Activate() warn("🚀 [Net Engine] Click THẢ CẦN!") end)
-                            task.wait(2.0) -- Chờ server nạp tín hiệu ổn định
+                            IsFishing = true -- Khóa click tạm thời chống spam click, chờ dữ liệu mạng ghi đè thực tế
+                            pcall(function() Rod:Activate() warn("🚀 Click THẢ CẦN!") end)
+                            task.wait(2.2)
                             
-                        -- TRÌNH TỰ B: SERVER BÁO CÁ CẮN (NeedToReel == true) -> CLICK GIẬT CẦN (REEL)
+                        -- TRÌNH TỰ B: CÁ CẮN CÂU (NeedToReel == true) -> CLICK GIẬT CẦN!
                         elseif IsFishing and NeedToReel then
-                            NeedToReel = false -- Khóa trạng thái giật ngay lập tức
-                            pcall(function() Rod:Activate() warn("⚡ [Net Engine] Click GIẬT CẦN!") end)
-                            task.wait(1.5) -- Chờ cá thường ăn thẳng hoặc mở bảng cá xịn (Minigame)
+                            NeedToReel = false -- Khóa trạng thái giật ngay tránh click lặp
+                            pcall(function() Rod:Activate() warn("⚡ Click GIẬT CẦN!") end)
+                            task.wait(1.5)
                             
-                            -- Phòng hờ nếu là cá thường (ăn thẳng, không mở UI), tự động mở khóa để câu tiếp
+                            -- Đệm an toàn: Nếu trúng cá thường (ăn thẳng không hiện UI), tự mở khóa câu tiếp
                             task.spawn(function() task.wait(1.0) if not FishingGui or not FishingGui.Enabled then IsFishing = false end end)
                         end
                     end
