@@ -607,36 +607,12 @@ tab3:CreateToggle({
         end
     end
 })
-
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ENGINE CHỐNG SPAM CLICK (FIXED)
+-- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - CHUẨN HOÁ LOGIC THỜI GIAN THỰC
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing = false
 _G.SelectedRod = "Wood Rod"
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local FishingRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FishingEvent")
-
--- Bảng quản lý trạng thái câu thời gian thực (Real-time State)
-local fishingState = "ReadyToCast" -- Các trạng thái: "ReadyToCast", "LureInWater", "Biting", "PlayingMinigame"
-
--- 🕵️ KHÓA ĐỒNG BỘ MẠNG: Lắng nghe tín hiệu trực tiếp từ hệ thống Server của Admin
-local EventConnection
-EventConnection = FishingRemote.OnClientEvent:Connect(function(action, ...)
-    if not _G.AutoFishing then return end
-    
-    if action == "FishingLaunched" then
-        -- Server xác nhận phao đã bay xuống nước thành công
-        fishingState = "LureInWater"
-        warn("📡 [Server] Phao đã dưới nước. Chuyển sang trạng thái: ĐỢI CÁ CẮN...")
-        
-    elseif action == "FishingMinigame" then
-        -- Server xác nhận cá đã cắn câu và chuẩn bị mở/hoặc kích hoạt cơ chế Minigame
-        fishingState = "Biting"
-        warn("📡 [Server] CÁ ĐÃ CẮN CÂU! Chuẩn bị kích nổ lệnh giật cần...")
-    end
-end)
 
 -- 🌟 Khởi tạo Tab Fishing xuất hiện ở danh mục bên trái menu của bạn
 local tab4 = MainMenu:CreateTab("Fishing 🎣")
@@ -654,86 +630,124 @@ tab4:CreateDropdown({
 tab4:CreateToggle({
     Name = "Tự động Câu Cá (Auto Fishing V3)",
     CurrentValue = false,
-    Callback = function(v)
-        _G.AutoFishing = v
+    Callback = function(Value)
+        _G.AutoFishing = Value
         
         if _G.AutoFishing then
-            local pObj = game:GetService("Players").LocalPlayer
-            fishingState = "ReadyToCast" -- Reset trạng thái ban đầu khi bật hack
+            local Player = game:GetService("Players").LocalPlayer
+            
+            -- Khóa chống spam click (State lock) để kiểm soát nhịp độ câu
+            -- Các trạng thái: "ReadyToCast" (Sẵn sàng thả), "Waiting" (Đang đợi cá), "Minigame" (Đang bấm nút)
+            local ActionState = "ReadyToCast"
             
             task.spawn(function()
                 while _G.AutoFishing do
-                    task.wait(0.04) -- Tốc độ phản hồi cao (25 nhịp/giây) nhưng không tốn CPU vì không quét Workspace
+                    task.wait(0.04) -- Tốc độ phản hồi cực cao (25 nhịp/giây), cực mượt
                     
-                    local char = pObj.Character
-                    local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    local pGui = pObj:FindFirstChild("PlayerGui")
+                    local Character = Player.Character
+                    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+                    local PlayerGui = Player:FindFirstChild("PlayerGui")
                     
-                    if hum and hum.Health > 0 and pGui then
-                        local fishingMinigameGui = pGui:FindFirstChild("FishingMinigame")
+                    if Humanoid and Humanoid.Health > 0 and PlayerGui then
+                        local FishingGui = PlayerGui:FindFirstChild("FishingMinigame") -- v_u_14 chính là cái này
                         
                         -- --------------------------------------------------------
-                        -- 🎯 XỬ LÝ 1: KIỂM TRA VÀ TỰ ĐỘNG GIẢI MINIGAME UI (BẤM Ô TRẮNG)
+                        -- 🎯 XỬ LÝ 1: NẾU MINIGAME ĐANG MỞ (MinigameActive == true) -> AUTO CLICK Ô TRẮNG
                         -- --------------------------------------------------------
-                        if fishingMinigameGui and fishingMinigameGui.Enabled == true then
-                            fishingState = "PlayingMinigame"
+                        if FishingGui and FishingGui.Enabled == true then
+                            ActionState = "Minigame"
                             
-                            -- Quét tìm ô mục tiêu đang hiển thị màu Trắng (230, 230, 230) theo code gốc hàm shuffleTarget
-                            for _, btn in pairs(fishingMinigameGui:GetDescendants()) do
-                                if btn:IsA("TextButton") and btn.BackgroundColor3 == Color3.fromRGB(230, 230, 230) then
+                            -- Quét tìm ô mục tiêu đang hiển thị màu Trắng (230, 230, 230) theo đúng logic hàm shuffleTarget gốc của Admin
+                            for _, Button in pairs(FishingGui:GetDescendants()) do
+                                if Button:IsA("TextButton") and Button.BackgroundColor3 == Color3.fromRGB(230, 230, 230) then
                                     task.wait(math.random(1, 3) / 100) -- Trễ ngẫu nhiên siêu nhỏ (0.01s - 0.03s) giả lập người thật
-                                    pcall(function() btn:Activate() end)
-                                    break -- Bấm trúng ô trắng nhịp này thì dừng ngay để chờ nhịp game sau tráo ô
+                                    pcall(function() 
+                                        Button:Activate() -- Nhấp trực tiếp vào ô trắng mục tiêu
+                                    end)
+                                    break -- Bấm trúng ô trắng nhịp này thì dừng ngay chờ nhịp sau game tráo ô mới
                                 end
                             end
                         
                         -- --------------------------------------------------------
-                        -- 🎣 XỬ LÝ 2: KHÔNG CÓ MINIGAME UI TRÊN MÀN HÌNH
+                        -- 🎣 XỬ LÝ 2: KHÔNG CÓ MINIGAME UI TRÊN MÀN HÌNH (THẢ CẦN / GIẬT CẦN)
                         -- --------------------------------------------------------
                         else
-                            -- CƠ CHẾ CHỐNG KẸT NGẪU NHIÊN: Nếu đang ghi nhận ở trạng thái Minigame hoặc Giật cần
-                            -- nhưng thực tế bảng UI của Admin đã biến mất (do đã câu xong hoặc ăn thẳng cá)
-                            if fishingState == "PlayingMinigame" or fishingState == "Biting" then
-                                fishingState = "ReadyToCast"
-                                task.wait(1.5) -- Khoảng trễ vàng để Server hoàn tất hoạt ảnh trao thưởng cá
+                            -- CƠ CHẾ CHỐNG KẸT: Nếu giao diện vừa đóng (vừa câu xong hoặc ăn thẳng cá)
+                            -- tự động mở khóa trạng thái để quăng cần lượt mới
+                            if ActionState == "Minigame" then
+                                ActionState = "ReadyToCast"
+                                task.wait(1.5) -- Khoảng trễ vàng để Server trao thưởng cá xong xuôi
                             end
                             
                             -- 2.1: TỰ ĐỘNG KIỂM TRA BALO VÀ TRANG BỊ CẦN CÂU TRÊN TAY
-                            local holdingRod = char:FindFirstChildOfClass("Tool")
-                            if not holdingRod or string.lower(holdingRod.Name) ~= string.lower(_G.SelectedRod) then
-                                if holdingRod then holdingRod.Parent = pObj.Backpack end
-                                local targetRodInBackpack = pObj.Backpack:FindFirstChild(_G.SelectedRod)
-                                if targetRodInBackpack then
-                                    hum:EquipTool(targetRodInBackpack)
-                                    task.wait(0.8) -- Đợi hoạt ảnh lôi cần ra tay chạy xong hẳn mới làm việc
+                            local HoldingRod = Character:FindFirstChildOfClass("Tool")
+                            if not HoldingRod or string.lower(HoldingRod.Name) ~= string.lower(_G.SelectedRod) then
+                                if HoldingRod then HoldingRod.Parent = Player.Backpack end
+                                local TargetRodInBackpack = Player.Backpack:FindFirstChild(_G.SelectedRod)
+                                if TargetRodInBackpack then
+                                    Humanoid:EquipTool(TargetRodInBackpack)
+                                    ActionState = "ReadyToCast" -- Reset trạng thái câu ngay khi vừa đổi cần
+                                    task.wait(0.8) -- Đợi hoạt ảnh lôi cần ra tay chạy xong hẳn mới làm việc tiếp
                                 end
                             end
                             
-                            -- Cập nhật lại thực thể cần câu sau khi trang bị
-                            holdingRod = char:FindFirstChildOfClass("Tool")
+                            HoldingRod = Character:FindFirstChildOfClass("Tool")
                             
-                            -- 2.2: THỰC HIỆN CÁC CÚ CLICK THỜI GIAN THỰC ĐƯỢC PHÂN PHỐI CHUẨN
-                            if holdingRod and string.lower(holdingRod.Name) == string.lower(_G.SelectedRod) then
+                            -- 2.2: VẬN HÀNH THAO TÁC THEO NHỊP ĐỘ THỰC TẾ WORKSPACE
+                            if HoldingRod and string.lower(HoldingRod.Name) == string.lower(_G.SelectedRod) then
                                 
-                                -- [HÀNH ĐỘNG A]: CHỈ CLICK 1 CÁI ĐỂ THẢ CẦN KHI ĐANG Ở TRẠNG THÁI SẴN SÀNG
-                                if fishingState == "ReadyToCast" then
-                                    -- Đổi trạng thái ngay lập tức trước khi click để chặn đứng việc vòng lặp sau spam click tiếp
-                                    fishingState = "WaitingForServerLaunch" 
+                                -- 🕵️ CHỐNG LỆCH BIẾN ẨN: Kiểm tra xem thực tế dưới nước có phao câu (Bobber) không
+                                local MyBobber = nil
+                                for _, Child in pairs(workspace:GetChildren()) do
+                                    if Child:IsA("BasePart") and (string.find(string.lower(Child.Name), "bobber") or string.find(string.lower(Child.Name), "phao") or string.find(string.lower(Child.Name), "hook") or string.find(string.lower(Child.Name), "lure")) then
+                                        local hrp = Character:FindFirstChild("HumanoidRootPart")
+                                        if hrp and (hrp.Position - Child.Position).Magnitude < 80 then
+                                            MyBobber = Child 
+                                            break
+                                        end
+                                    end
+                                end
+                                
+                                -- [HÀNH ĐỘNG A]: KHÔNG THẤY PHAO CÂU + TRẠNG THÁI SẴN SÀNG -> CLICK THẢ CẦN (CAST)
+                                if not MyBobber and ActionState == "ReadyToCast" then
+                                    ActionState = "Waiting" -- Khóa trạng thái ngay để chặn đứng việc spam click liên tục ở vòng lặp sau
                                     
                                     pcall(function()
-                                        holdingRod:Activate() -- Click chuột phát thứ 1 ép Admin chạy lệnh Cast gốc
-                                        warn("🚀 [Action] Đã Click THẢ CẦN! Hệ thống đã khóa click, đang chờ Server phản hồi...")
+                                        HoldingRod:Activate() -- Click chuột phát thứ 1 (Mạch Admin tự hiểu là Cast)
+                                        warn("🚀 [Auto Click] Không thấy phao dưới nước -> Đã nhấp chuột THẢ CẦN!")
                                     end)
+                                    task.wait(2.2) -- Thời gian chờ an toàn để phao rơi xuống nước ổn định
                                     
-                                -- [HÀNH ĐỘNG B]: CÁ CẮN (SERVER GỬI TÍN HIỆU) -> CLICK 1 CÁI ĐỂ GIẬT CẦN (REEL)
-                                elseif fishingState == "Biting" then
-                                    pcall(function()
-                                        holdingRod:Activate() -- Click chuột phát thứ 2 ép Admin chạy lệnh Reel gốc
-                                        warn("⚡ [Action] Cá cắn câu! Đã Click GIẬT CẦN!")
-                                    end)
-                                    -- Chuyển sang trạng thái chờ minigame để bộ quét UI bên trên tự động xử lý
-                                    fishingState = "PlayingMinigame"
-                                    task.wait(0.5)
+                                -- [HÀNH ĐỘNG B]: CÓ PHAO CÂU DƯỚI NƯỚC -> RÌNH CÁ CẮN ĐỂ CLICK GIẬT CẦN (REEL)
+                                elseif MyBobber then
+                                    ActionState = "Waiting" -- Đồng bộ trạng thái đang câu
+                                    local FishBiting = false
+                                    
+                                    -- Thuật toán check 1: Nhận diện hiệu ứng hạt đổi màu xanh lá của game gốc phát ra tại phao
+                                    for _, Obj in pairs(MyBobber:GetChildren()) do
+                                        if (Obj:IsA("ParticleEmitter") or Obj:IsA("Sparkles")) then
+                                            if Obj:IsA("ParticleEmitter") and (Obj.Color.Keypoints.Value.G > 0.65 and Obj.Color.Keypoints.Value.R < 0.45) then
+                                                FishBiting = true break
+                                            elseif Obj:IsA("Sparkles") and (Obj.SparkleColor.G > 0.65 and Obj.SparkleColor.R < 0.45) then
+                                                FishBiting = true break
+                                            end
+                                        end
+                                    end
+                                    
+                                    -- Thuật toán check 2: Quét gia tốc vật lý phao bị kéo lôi giật chìm mạnh xuống nước
+                                    if not FishBiting and (MyBobber.AssemblyLinearVelocity.Y < -1.8 or MyBobber:GetAttribute("Biting") == true) then
+                                        FishBiting = true
+                                    end
+                                    
+                                    -- ĐÃ XÁC NHẬN CÁ CẮN CÂU -> CLICK PHÁT THỨ 2 ĐỂ GIẬT CẦN TỨC THÌ!
+                                    if FishBiting then
+                                        pcall(function()
+                                            HoldingRod:Activate() -- Click chuột phát thứ 2 (Mạch Admin tự hiểu là Reel để lôi minigame lên)
+                                            warn("⚡ [Auto Click] Cá đã đớp mồi -> Đã nhấp chuột GIẬT CẦN!")
+                                        end)
+                                        ActionState = "Minigame" -- Chuyển sang trạng thái đợi minigame vẽ giao diện
+                                        task.wait(1.5) -- Đợi 1.5 giây để Server phản hồi mở giao diện Minigame lên hẳn
+                                    end
                                 end
                                 
                             end
