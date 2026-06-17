@@ -608,11 +608,38 @@ tab3:CreateToggle({
     end
 })
 -- ====================================================================
--- PHẦN 4: HỆ THỐNG AUTO FISHING V3 - ENGINE CHỐNG TỰ GIẬT SAI THỜI ĐIỂM
+-- AUTO FISHING V3 - CHUẨN HOÁ NETWORK EVENT (ĐỒNG BỘ THEO ẢNH 100%)
 -- ====================================================================
 local _G = _G or {}
 _G.AutoFishing, _G.SelectedRod = false, "Wood Rod"
 local Player = game:GetService("Players").LocalPlayer
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local FishingRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FishingEvent")
+
+-- Công tắc quản lý trạng thái dựa trên tín hiệu Server trả về trong ảnh
+local IsFishing = false   -- Chỉ bật true khi Server phản hồi "FishingLaunched"
+local NeedToReel = false  -- Chỉ bật true khi Server phản hồi "FishingMinigame" (Cá cắn)
+local InMinigame = false
+
+-- LẮNG NGHE SỰ KIỆN MẠNG GỐC THEO ĐÚNG SƠ ĐỒ ẢNH BẠN GỬI
+local EventConnection
+EventConnection = FishingRemote.OnClientEvent:Connect(function(Action, ...)
+    if not _G.AutoFishing then return end
+    
+    if Action == "FishingLaunched" then
+        IsFishing = true
+        NeedToReel = false
+        warn("📡 Server: Thả câu thành công! Khóa chặt click, đứng im đợi cá...")
+    elseif Action == "FishingMinigame" then
+        NeedToReel = true
+        warn("📡 Server: CÁ CẮN CÂU! Cho phép giật cần...")
+    elseif Action == "FishingReeled" then
+        IsFishing = false
+        NeedToReel = false
+        warn("📡 Server: Thu cần về.")
+    end
+end)
 
 local tab4 = MainMenu:CreateTab("Fishing 🎣")
 tab4:CreateDropdown({
@@ -624,22 +651,21 @@ tab4:CreateToggle({
     Name = "Tự động Câu Cá", CurrentValue = false,
     Callback = function(v)
         _G.AutoFishing = v
-        if not _G.AutoFishing then return end
-        local ClickLock, MiniHandled, CastTime = false, false, 0
+        if not _G.AutoFishing then if EventConnection then EventConnection:Disconnect() end return end
+        IsFishing, NeedToReel, InMinigame = false, false, false
         
         task.spawn(function()
             while _G.AutoFishing do task.wait(0.04)
                 local Char = Player.Character
                 local Hum = Char and Char:FindFirstChildOfClass("Humanoid")
-                local Root = Char and Char:FindFirstChild("HumanoidRootPart")
                 local pGui = Player:FindFirstChild("PlayerGui")
-                if not Hum or Hum.Health <= 0 or not Root or not pGui then continue end
+                if not Hum or Hum.Health <= 0 or not pGui then continue end
                 
                 local FishingGui = pGui:FindFirstChild("FishingMinigame")
                 
-                -- 🎯 BƯỚC 1: XỬ LÝ CLICK MINIGAME ICON CÁ CÓ VIỀN TRẮNG (CÁ XỊN)
+                -- 🎯 BƯỚC 1: XỬ LÝ CLICK MINIGAME ICON CÁ CÓ VIỀN TRẮNG (CÁ XỊN XUẤT HIỆN)
                 if FishingGui and FishingGui.Enabled then
-                    ClickLock, MiniHandled = false, true
+                    InMinigame = true
                     for _, Btn in pairs(FishingGui:GetDescendants()) do
                         if Btn:IsA("TextButton") or Btn:IsA("ImageButton") then
                             local Stroke = Btn:FindFirstChildOfClass("UIStroke")
@@ -648,61 +674,35 @@ tab4:CreateToggle({
                             end
                         end
                     end
-                -- 🎣 BƯỚC 2: LOGIC THẢ & GIẬT THEO ĐÚNG THỰC THỂ FISHINGROPE TRONG DEX
+                -- 🎣 BƯỚC 2: LOGIC THẢ CẦN & GIẬT CẦN ĐỒNG BỘ MẠNG TUYỆT ĐỐI
                 else
-                    if MiniHandled then MiniHandled = false task.wait(1.5) end
+                    if InMinigame then InMinigame = false IsFishing, NeedToReel = false, false task.wait(1.5) end
                     
                     -- Tự động lấy cần câu ra tay từ balo
                     local Rod = Char:FindFirstChildOfClass("Tool")
                     if not Rod or string.lower(Rod.Name) ~= string.lower(_G.SelectedRod) then
                         if Rod then Rod.Parent = Player.Backpack end
                         local Target = Player.Backpack:FindFirstChild(_G.SelectedRod)
-                        if Target then Hum:EquipTool(Target) ClickLock = false task.wait(0.8) end
+                        if Target then Hum:EquipTool(Target) IsFishing, NeedToReel = false, false task.wait(0.8) end
                     end
                     
                     Rod = Char:FindFirstChildOfClass("Tool")
-                    if Rod and string.lower(Rod.Name) == string.lower(_G.SelectedRod) and not ClickLock then
+                    if Rod and string.lower(Rod.Name) == string.lower(_G.SelectedRod) then
                         
-                        -- 🕵️ ĐỒNG BỘ DEX: Quét tìm thực thể FishingRope ẩn sâu trong các Folder UUID quanh bạn
-                        local MyRope = nil
-                        for _, Obj in pairs(workspace:GetDescendants()) do
-                            if Obj:IsA("BasePart") and string.find(Obj.Name, "FishingRope") then
-                                if (Root.Position - Obj.Position).Magnitude < 60 then
-                                    MyRope = Obj break
-                                end
-                            end
-                        end
-                        
-                        -- TRÌNH TỰ A: KHÔNG THẤY DÂY CÂU -> CLICK THẢ CẦN (CAST)
-                        if not MyRope then
-                            ClickLock = true
-                            pcall(function() Rod:Activate() warn("🚀 [Dex Engine] Click THẢ CẦN!") end)
-                            CastTime = os.clock() -- Ghi nhận thời gian vừa thả câu thành công
-                            task.wait(2.2) -- Khóa luồng chờ game tạo xong thực thể FishingRope dưới nước
-                            ClickLock = false
+                        -- TRÌNH TỰ A: SERVER BÁO CHƯA CÂU (IsFishing == false) -> CLICK THẢ CẦN (CAST)
+                        if not IsFishing and not NeedToReel then
+                            IsFishing = true -- Khóa ảo lập tức chặn spam click, đợi "FishingLaunched" thật từ Server ghi đè
+                            pcall(function() Rod:Activate() warn("🚀 [Net Engine] Click THẢ CẦN!") end)
+                            task.wait(2.0) -- Chờ server nạp tín hiệu ổn định
                             
-                        -- TRÌNH TỰ B: ĐÃ TÌM THẤY DÂY CÂU -> RÌNH CÁ CẮN ĐỂ CLICK GIẬT CẦN (REEL)
-                        else
-                            -- CHỐNG LỖI TỰ GIẬT: Phải đợi ít nhất 2.5 giây sau khi thả câu thì mới cho phép dò cá cắn
-                            if (os.clock() - CastTime) > 2.5 then
-                                local Biting = MyRope:GetAttribute("Biting") == true
-                                
-                                -- Nhận diện hiệu ứng hạt đổi màu xanh lá phát ra tại sợi FishingRope này
-                                if not Biting then
-                                    for _, Particle in pairs(MyRope:GetChildren()) do
-                                        if (Particle:IsA("ParticleEmitter") or Particle:IsA("Sparkles")) and Particle.Color.Keypoints.Value.G > 0.65 then
-                                            Biting = true break
-                                        end
-                                    end
-                                end
-                                
-                                -- CÁ CẮN CÂU THẬT SỰ -> TIẾN HÀNH CLICK GIẬT CẦN LÊN
-                                if Biting then
-                                    ClickLock = true
-                                    pcall(function() Rod:Activate() warn("⚡ [Dex Engine] Click GIẬT CẦN!") end)
-                                    task.wait(1.5) ClickLock = false
-                                end
-                            end
+                        -- TRÌNH TỰ B: SERVER BÁO CÁ CẮN (NeedToReel == true) -> CLICK GIẬT CẦN (REEL)
+                        elseif IsFishing and NeedToReel then
+                            NeedToReel = false -- Khóa trạng thái giật ngay lập tức
+                            pcall(function() Rod:Activate() warn("⚡ [Net Engine] Click GIẬT CẦN!") end)
+                            task.wait(1.5) -- Chờ cá thường ăn thẳng hoặc mở bảng cá xịn (Minigame)
+                            
+                            -- Phòng hờ nếu là cá thường (ăn thẳng, không mở UI), tự động mở khóa để câu tiếp
+                            task.spawn(function() task.wait(1.0) if not FishingGui or not FishingGui.Enabled then IsFishing = false end end)
                         end
                     end
                 end
