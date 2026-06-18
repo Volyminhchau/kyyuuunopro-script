@@ -166,10 +166,53 @@ function MyLibrary:CreateWindow(titleText)
     end
     return LibraryMethods
 end
-==================================================================== 
--- phần 1.2: logic hệ thống tự động bấm nút hồi sinh (auto spawn) 
--- ==================================================================== 
-local playersservice = game:getservice("players") local localplayer = playersservice.localplayer local virtualuser = game:getservice("virtualuser") task.spawn(function() while true do task.wait(1) local character = localplayer.character if not character or (character:findfirstchild("humanoid") and character.humanoid.health <= 0) then local playergui = localplayer:findfirstchild("playergui") if playergui then for _, gui in pairs(playergui:getdescendants()) do if gui:isa("textbutton") or gui:isa("imagebutton") then local buttontext = string.lower(gui.name) if gui:isa("textbutton") then buttontext = buttontext .. string.lower(gui.text) end if string.find(buttontext, "spawn") or string.find(buttontext, "respawn") or string.find(buttontext, "play") or string.find(buttontext, "sinh") or string.find(buttontext, "chơi") then if gui.visible and gui.absolutesize.x > 0 then pcall(function() gui:activate() for _, connection in pairs(getconnections(gui.mousebutton1click)) do connection:fire() end for _, connection in pairs(getconnections(gui.mousebutton1down)) do connection:fire() end end) end end end end end end end end) 
+-- ====================================================================
+-- PHẦN 1.2: LOGIC HỆ THỐNG TỰ ĐỘNG HỒI SINH (SỬ DỤNG SPAWNHANDLER)
+-- ====================================================================
+local PlayersService = game:GetService("Players")
+local LocalPlayer = PlayersService.LocalPlayer
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        
+        local character = LocalPlayer.Character
+        -- Kiểm tra nếu nhân vật chưa load hoặc đã chết
+        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then
+            
+            -- Cách 1: Tự động kích hoạt thông qua việc gọi Remote trong hệ thống (Tối ưu nhất)
+            pcall(function()
+                -- Tìm tất cả các RemoteEvent trong ReplicatedStorage liên quan đến Spawn
+                for _, obj in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+                    if obj:IsA("RemoteEvent") and (string.find(string.lower(obj.Name), "spawn") or string.find(string.lower(obj.Name), "respawn")) then
+                        obj:FireServer() -- Gửi tín hiệu hồi sinh thẳng lên Server độc lập với UI
+                    end
+                end
+            end)
+
+            -- Cách 2: Ép UI "Load" kích hoạt nếu nó chứa nút ẩn bên trong
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local loadGui = playerGui and playerGui:FindFirstChild("Load")
+            
+            if loadGui then
+                pcall(function()
+                    -- Quét mọi nút bấm ẩn bên trong cụm UI "Load" xuất hiện trong ảnh
+                    for _, gui in pairs(loadGui:GetDescendants()) do
+                        if gui:IsA("TextButton") or gui:IsA("ImageButton") then
+                            gui:Activate()
+                            if getconnections then
+                                for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end
+                                for _, connection in pairs(getconnections(gui.Activated)) do connection:Fire() end
+                            end
+                        end
+                    end
+                end)
+            end
+            
+        end
+    end
+end)
+
 
 -- ====================================================================
 -- PHẦN 2: KHỞI CHẠY MENU, ĐÈN LED RGB VÀ LOGIC TÍNH NĂNG FARM QUÁI
