@@ -168,7 +168,7 @@ function MyLibrary:CreateWindow(titleText)
 end
 
 -- ====================================================================
--- PHẦN 1.2: HỆ THỐNG AUTO SPAWN TỐI ƯU THEO CẤU TRÚC GAME
+-- PHẦN 1.2: LOGIC HỆ THỐNG TỰ ĐỘNG BẤM NÚT HỒI SINH (AUTO SPAWN)
 -- ====================================================================
 local PlayersService = game:GetService("Players")
 local LocalPlayer = PlayersService.LocalPlayer
@@ -176,53 +176,56 @@ local VirtualUser = game:GetService("VirtualUser")
 
 task.spawn(function()
     while true do
-        task.wait(0.5) -- Quét nhanh hơn (0.5 giây/lần) để hồi sinh lập tức
+        task.wait(1)
         
         local character = LocalPlayer.Character
-        -- Điều kiện 1: Nhân vật chưa hồi sinh hoặc lượng máu bằng 0
-        -- Điều kiện 2: Hoặc màn hình UI "Load" đang được bật lên (theo code gốc của game)
-        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        local loadGui = playerGui and playerGui:FindFirstChild("Load")
-        
-        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) or (loadGui and loadGui.Enabled == true) then
-            if loadGui then
-                -- Duyệt thẳng vào trong cụm PlayerGui.Load để tìm nút bấm
-                for _, gui in pairs(loadGui:GetDescendants()) do
+        -- Kiểm tra nếu nhân vật chưa load hoặc đã chết
+        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            
+            if playerGui then
+                for _, gui in pairs(playerGui:GetDescendants()) do
                     if gui:IsA("TextButton") or gui:IsA("ImageButton") then
-                        
-                        -- Chỉ bấm nếu nút hiển thị trên màn hình và có kích thước thực tế
-                        if gui.AbsoluteSize.X > 0 and gui.AbsolutePosition.X >= 0 then
-                            pcall(function()
-                                -- Tự động tắt UI Load của game để tránh bị kẹt màn hình đen/mờ
-                                loadGui.Enabled = false 
-                                
-                                -- Cách 1: Giả lập click chuột ảo vào tâm nút (Khắc phục triệt để lỗi chặn click)
-                                local x = gui.AbsolutePosition.X + (gui.AbsoluteSize.X / 2)
-                                local y = gui.AbsolutePosition.Y + (gui.AbsoluteSize.Y / 2) + 36 -- Bù trừ thanh Topbar Roblox
-                                VirtualUser:Button1Down(Vector2.new(x, y))
-                                task.wait(0.02)
-                                VirtualUser:Button1Up(Vector2.new(x, y))
-                                
-                                -- Cách 2: Kích hoạt song song mọi sự kiện (Event) liên kết với nút
-                                gui:Activate()
-                                if getconnections then
-                                    for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end
-                                    for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end
-                                    for _, connection in pairs(getconnections(gui.Activated)) do connection:Fire() end
-                                end
-                            end)
-                            
-                            -- Nghỉ một chút sau khi bấm để tránh spam crash game
-                            task.wait(0.5)
-                            break
+                        -- Lấy tên nút và chữ hiển thị để quét từ khóa
+                        local buttonText = string.lower(gui.Name)
+                        if gui:IsA("TextButton") then
+                            buttonText = buttonText .. " " .. string.lower(gui.Text)
                         end
                         
+                        -- Tìm từ khóa hồi sinh/vào game
+                        if string.find(buttonText, "spawn") or string.find(buttonText, "respawn") or 
+                           string.find(buttonText, "play") or string.find(buttonText, "sinh") or 
+                           string.find(buttonText, "chơi") then
+                            
+                            -- Kiểm tra nút có thực sự hiển thị trên màn hình không
+                            if gui.AbsoluteSize.X > 0 and gui.AbsolutePosition.X >= 0 then
+                                pcall(function()
+                                    -- Cách 1: Giả lập click chuột trực tiếp vào tọa độ nút (Tỷ lệ thành công cao nhất)
+                                    local x = gui.AbsolutePosition.X + (gui.AbsoluteSize.X / 2)
+                                    local y = gui.AbsolutePosition.Y + (gui.AbsoluteSize.Y / 2) + 36 -- +36 để bù trừ thanh Topbar Roblox
+                                    VirtualUser:Button1Down(Vector2.new(x, y))
+                                    task.wait(0.05)
+                                    VirtualUser:Button1Up(Vector2.new(x, y))
+                                    
+                                    -- Cách 2: Kích hoạt trực tiếp hàm của nút
+                                    gui:Activate()
+                                    
+                                    -- Cách 3: Ép chạy các event kết nối với nút (Nếu có script hỗ trợ)
+                                    if getconnections then
+                                        for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end
+                                        for _, connection in pairs(getconnections(gui.MouseButton1Down)) do connection:Fire() end
+                                        for _, connection in pairs(getconnections(gui.Activated)) do connection:Fire() end
+                                    end
+                                end)
+                            end
+                        end
                     end
                 end
             end
         end
     end
 end)
+
 -- ====================================================================
 -- PHẦN 2: KHỞI CHẠY MENU, ĐÈN LED RGB VÀ LOGIC TÍNH NĂNG FARM QUÁI
 -- ====================================================================
