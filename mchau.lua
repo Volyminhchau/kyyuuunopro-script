@@ -1,218 +1,112 @@
 -- ====================================================================
--- PHẦN 1: THƯ VIỆN GIAO DIỆN CYBERPUNK GRADIENT & BẢNG AUTO SPAWN
+-- PHẦN 1: THƯ VIỆN GIAO DIỆN (BẢN SIÊU RÚT GỌN)
 -- ====================================================================
 local MyLibrary = {}
-
 function MyLibrary:CreateWindow(titleText)
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "KyyuuunoproPremiumUI_v3"
-    pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
-    if not ScreenGui.Parent then ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") end
-    
-    -- 🌟 Khung Menu Chính Cao Cấp (Nền tối sâu, đổ bóng mờ)
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 500, 0, 320)
-    MainFrame.Position = UDim2.new(0.5, -250, 0.5, -160)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-    MainFrame.BorderSizePixel = 0 MainFrame.Active = true MainFrame.Draggable = true MainFrame.Parent = ScreenGui
-    
-    local UICorner = Instance.new("UICorner") UICorner.CornerRadius = UDim.new(0, 14) UICorner.Parent = MainFrame
-    
-    -- 🌟 ĐÈN LED VIỀN (STOKE GLOW): Tạo dải viền Neon mỏng bo quanh menu cực đẹp
-    local UIStroke = Instance.new("UIStroke")
-    UIStroke.Thickness = 2
-    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    UIStroke.Color = Color3.fromRGB(45, 120, 255)
-    UIStroke.Parent = MainFrame
-
-    -- Thanh Tiêu Đề Phía Trên
-    Title = Instance.new("TextLabel") 
-    Title.Size = UDim2.new(1, 0, 0, 48) Title.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
-    Title.Text = "     " .. (titleText or "PREMIUM HUB") Title.TextColor3 = Color3.fromRGB(255, 255, 255) Title.TextSize = 16
-    Title.TextXAlignment = Enum.TextXAlignment.Left Title.Font = Enum.Font.GothamBold Title.Parent = MainFrame
-    
-    local TitleCorner = Instance.new("UICorner") TitleCorner.CornerRadius = UDim.new(0, 14) TitleCorner.Parent = Title
-    
-    -- Hiệu ứng chuyển màu Gradient (UIGradient) cho thanh tiêu đề nhìn xịn hơn
-    local TitleGradient = Instance.new("UIGradient")
-    TitleGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 120, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 45, 255))
-    })
-    TitleGradient.Parent = Title
-
-    -- Nút Dấu Trừ Thu Nhỏ Menu (-)
-    local CloseMinButton = Instance.new("TextButton") CloseMinButton.Size = UDim2.new(0, 32, 0, 32) CloseMinButton.Position = UDim2.new(1, -42, 0, 8)
-    CloseMinButton.BackgroundColor3 = Color3.fromRGB(35, 35, 45) CloseMinButton.Text = "−" CloseMinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseMinButton.TextSize = 18 CloseMinButton.Font = Enum.Font.GothamBold CloseMinButton.Parent = MainFrame
-    local MinCorner = Instance.new("UICorner") MinCorner.CornerRadius = UDim.new(0, 8) MinCorner.Parent = CloseMinButton
-    
-    -- Nút Tròn Mở Menu Ngoài Màn Hình (OPEN)
-    OpenButton = Instance.new("TextButton") 
-    OpenButton.Size = UDim2.new(0, 55, 0, 55) OpenButton.Position = UDim2.new(0, 25, 1, -80)
-    OpenButton.BackgroundColor3 = Color3.fromRGB(45, 120, 255) OpenButton.Text = "OPEN" OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    OpenButton.TextSize = 13 OpenButton.Font = Enum.Font.GothamBold OpenButton.Visible = false OpenButton.Parent = ScreenGui
-    local OpenCorner = Instance.new("UICorner") OpenCorner.CornerRadius = UDim.new(0, 28) OpenCorner.Parent = OpenButton
-    
-    -- Hiệu ứng Stroke cho nút Open
-    local OpenStroke = Instance.new("UIStroke") OpenStroke.Thickness = 2 OpenStroke.Color = Color3.fromRGB(255, 255, 255) OpenStroke.Parent = OpenButton
-
-    CloseMinButton.MouseButton1Click:Connect(function() MainFrame.Visible = false OpenButton.Visible = true end)
-    OpenButton.MouseButton1Click:Connect(function() MainFrame.Visible = true OpenButton.Visible = false end)
-    
-    -- Thanh Sidebar Chọn Tab bên trái
-    local Sidebar = Instance.new("Frame") Sidebar.Size = UDim2.new(0, 140, 1, -48) Sidebar.Position = UDim2.new(0, 0, 0, 48)
-    Sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 26) Sidebar.BorderSizePixel = 0 Sidebar.Parent = MainFrame
-    local SidebarLayout = Instance.new("UIListLayout") SidebarLayout.Padding = UDim.new(0, 6) SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center SidebarLayout.Parent = Sidebar
-    local SidebarPadding = Instance.new("UIPadding") SidebarPadding.PaddingTop = UDim.new(0, 12) SidebarPadding.Parent = Sidebar
-    
-    -- Khung nội dung bên phải (Có thêm Stroke phân cách)
-    local ContentContainer = Instance.new("Frame") ContentContainer.Size = UDim2.new(1, -155, 1, -60) ContentContainer.Position = UDim2.new(0, 148, 0, 54) ContentContainer.BackgroundTransparency = 1 ContentContainer.Parent = MainFrame
-    
-    -- Vòng lặp liên tục chạy Đèn LED Viền Cầu Vồng (Chữa lỗi mất màu câu trước)
-    task.spawn(function()
-        local hue = 0
-        while task.wait(0.01) do
-            hue = hue + 0.004 if hue > 1 then hue = 0 end
-            local rainbow = Color3.fromHSV(hue, 0.85, 0.85)
-            if UIStroke then UIStroke.Color = rainbow end
-            if OpenStroke then OpenStroke.Color = rainbow end
-        end
-    end)
-
-    local TabCount = 0 local Tabs = {} local LibraryMethods = {}
-    
-    function LibraryMethods:CreateTab(tabName)
+    local ScreenGui = Instance.new("ScreenGui") ScreenGui.Name = "KyyuuunoproPremiumUI_v3" ScreenGui.ResetOnSpawn = false
+    pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end) if not ScreenGui.Parent then ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") end
+    local MainFrame = Instance.new("Frame") MainFrame.Size = UDim2.new(0, 500, 0, 320) MainFrame.Position = UDim2.new(0.5, -250, 0.5, -160) MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20) MainFrame.Active = true MainFrame.Draggable = true MainFrame.Parent = ScreenGui
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
+    local UIStroke = Instance.new("UIStroke", MainFrame) UIStroke.Thickness = 2 UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local Title = Instance.new("TextLabel", MainFrame) Title.Size = UDim2.new(1, 0, 0, 48) Title.BackgroundColor3 = Color3.fromRGB(24, 24, 30) Title.Text = "     " .. (titleText or "PREMIUM HUB") Title.TextColor3 = Color3.fromRGB(255, 255, 255) Title.TextSize = 16 Title.TextXAlignment = Enum.TextXAlignment.Left Title.Font = Enum.Font.GothamBold Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 14)
+    local TitleGradient = Instance.new("UIGradient", Title) TitleGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 120, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 45, 255))})
+    local CloseMinButton = Instance.new("TextButton", MainFrame) CloseMinButton.Size = UDim2.new(0, 32, 0, 32) CloseMinButton.Position = UDim2.new(1, -42, 0, 8) CloseMinButton.BackgroundColor3 = Color3.fromRGB(35, 35, 45) CloseMinButton.Text = "−" CloseMinButton.TextColor3 = Color3.fromRGB(255, 255, 255) CloseMinButton.TextSize = 18 CloseMinButton.Font = Enum.Font.GothamBold Instance.new("UICorner", CloseMinButton).CornerRadius = UDim.new(0, 8)
+    local OpenButton = Instance.new("TextButton", ScreenGui) OpenButton.Size = UDim2.new(0, 55, 0, 55) OpenButton.Position = UDim2.new(0, 25, 1, -80) OpenButton.BackgroundColor3 = Color3.fromRGB(45, 120, 255) OpenButton.Text = "OPEN" OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255) OpenButton.TextSize = 13 OpenButton.Font = Enum.Font.GothamBold OpenButton.Visible = false local OpenStroke = Instance.new("UIStroke", OpenButton) OpenStroke.Thickness = 2 OpenStroke.Color = Color3.fromRGB(255, 255, 255) Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 28)
+    CloseMinButton.MouseButton1Click:Connect(function() MainFrame.Visible = false OpenButton.Visible = true end) OpenButton.MouseButton1Click:Connect(function() MainFrame.Visible = true OpenButton.Visible = false end)
+    local Sidebar = Instance.new("Frame", MainFrame) Sidebar.Size = UDim2.new(0, 140, 1, -48) Sidebar.Position = UDim2.new(0, 0, 0, 48) Sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 26) Sidebar.BorderSizePixel = 0 local SidebarLayout = Instance.new("UIListLayout", Sidebar) SidebarLayout.Padding = UDim.new(0, 6) SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 12)
+    local ContentContainer = Instance.new("Frame", MainFrame) ContentContainer.Size = UDim2.new(1, -155, 1, -60) ContentContainer.Position = UDim2.new(0, 148, 0, 54) ContentContainer.BackgroundTransparency = 1
+    task.spawn(function() local hue = 0 while task.wait(0.01) do hue = hue + 0.004 if hue > 1 then hue = 0 end local rainbow = Color3.fromHSV(hue, 0.85, 0.85) if UIStroke then UIStroke.Color = rainbow end if OpenStroke then OpenStroke.Color = rainbow end end end)
+    local TabCount, Tabs = 0, {}
+    function MyLibrary:CreateTab(tabName)
         TabCount = TabCount + 1
-        local TabContent = Instance.new("ScrollingFrame") TabContent.Size = UDim2.new(1, 0, 1, 0) TabContent.BackgroundTransparency = 1 TabContent.ScrollBarThickness = 4 TabContent.Visible = (TabCount == 1) TabContent.Parent = ContentContainer
-        TabContent.AutomaticCanvasSize = Enum.AutomaticSize.Y TabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
-        local ContentLayout = Instance.new("UIListLayout") ContentLayout.Padding = UDim.new(0, 10) ContentLayout.Parent = TabContent
-        
-        -- Nút bấm Sidebar có thiết kế mượt mà
-        local TabButton = Instance.new("TextButton") TabButton.Size = UDim2.new(0, 124, 0, 40) TabButton.BackgroundColor3 = (TabCount == 1) and Color3.fromRGB(35, 40, 55) or Color3.fromRGB(26, 26, 34) TabButton.Text = tabName TabButton.TextColor3 = Color3.fromRGB(255, 255, 255) TabButton.TextSize = 13 TabButton.Font = Enum.Font.GothamBold TabButton.Parent = Sidebar
-        local ButtonCorner = Instance.new("UICorner") ButtonCorner.CornerRadius = UDim.new(0, 8) ButtonCorner.Parent = TabButton
-        local ButtonStroke = Instance.new("UIStroke") ButtonStroke.Thickness = 1 ButtonStroke.Color = (TabCount == 1) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(40, 40, 50) ButtonStroke.Parent = TabButton
-
-            table.insert(Tabs, {Button = TabButton, Content = TabContent, Stroke = ButtonStroke})
-        TabButton.MouseButton1Click:Connect(function()
-            for _, t in pairs(Tabs) do 
-                t.Content.Visible = (t.Button == TabButton) 
-                t.Button.BackgroundColor3 = (t.Button == TabButton) and Color3.fromRGB(35, 40, 55) or Color3.fromRGB(26, 26, 34)
-                t.Stroke.Color = (t.Button == TabButton) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(40, 40, 50)
-            end
-        end)
-        
+        local TabContent = Instance.new("ScrollingFrame", ContentContainer) TabContent.Size = UDim2.new(1, 0, 1, 0) TabContent.BackgroundTransparency = 1 TabContent.ScrollBarThickness = 4 TabContent.Visible = (TabCount == 1) TabContent.AutomaticCanvasSize = Enum.AutomaticSize.Y TabContent.CanvasSize = UDim2.new(0, 0, 0, 0) Instance.new("UIListLayout", TabContent).Padding = UDim.new(0, 10)
+        local TabButton = Instance.new("TextButton", Sidebar) TabButton.Size = UDim2.new(0, 124, 0, 40) TabButton.BackgroundColor3 = (TabCount == 1) and Color3.fromRGB(35, 40, 55) or Color3.fromRGB(26, 26, 34) TabButton.Text = tabName TabButton.TextColor3 = Color3.fromRGB(255, 255, 255) TabButton.TextSize = 13 TabButton.Font = Enum.Font.GothamBold Instance.new("UICorner", TabButton).CornerRadius = UDim.new(0, 8) local ButtonStroke = Instance.new("UIStroke", TabButton) ButtonStroke.Thickness = 1 ButtonStroke.Color = (TabCount == 1) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(40, 40, 50)
+        table.insert(Tabs, {Button = TabButton, Content = TabContent, Stroke = ButtonStroke})
+        TabButton.MouseButton1Click:Connect(function() for _, t in pairs(Tabs) do t.Content.Visible = (t.Button == TabButton) t.Button.BackgroundColor3 = (t.Button == TabButton) and Color3.fromRGB(35, 40, 55) or Color3.fromRGB(26, 26, 34) t.Stroke.Color = (t.Button == TabButton) and Color3.fromRGB(45, 120, 255) or Color3.fromRGB(40, 40, 50) end end)
         local TabMethods = {}
-        
-        -- 1. HÀM TẠO TOGGLE GỐC CỦA BẠN
         function TabMethods:CreateToggle(config)
-            local toggleName = config.Name or "Toggle" local callback = config.Callback or function() end local isToggled = config.CurrentValue or false
-            
-            local ToggleFrame = Instance.new("Frame") ToggleFrame.Size = UDim2.new(1, -5, 0, 48) ToggleFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32) ToggleFrame.BorderSizePixel = 0 ToggleFrame.Parent = TabContent
-            local FrameCorner = Instance.new("UICorner") FrameCorner.CornerRadius = UDim.new(0, 10) FrameCorner.Parent = ToggleFrame
-            local FrameStroke = Instance.new("UIStroke") FrameStroke.Thickness = 1 FrameStroke.Color = Color3.fromRGB(35, 35, 45) FrameStroke.Parent = ToggleFrame
-
-            local ToggleText = Instance.new("TextLabel") ToggleText.Size = UDim2.new(1, -80, 1, 0) ToggleText.Position = UDim2.new(0, 14, 0, 0) ToggleText.BackgroundTransparency = 1 ToggleText.Text = toggleName ToggleText.TextColor3 = Color3.fromRGB(240, 240, 245) ToggleText.TextSize = 13 ToggleText.TextXAlignment = Enum.TextXAlignment.Left ToggleText.Font = Enum.Font.GothamBold ToggleText.Parent = ToggleFrame
-            
-            local SliderBg = Instance.new("Frame") SliderBg.Size = UDim2.new(0, 52, 0, 26) SliderBg.Position = UDim2.new(1, -66, 0.5, -13) SliderBg.BackgroundColor3 = isToggled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(50, 50, 60) SliderBg.Parent = ToggleFrame
-            local SliderCorner = Instance.new("UICorner") SliderCorner.CornerRadius = UDim.new(0, 13) SliderCorner.Parent = SliderBg
-            
-            local Circle = Instance.new("Frame") Circle.Size = UDim2.new(0, 20, 0, 20) Circle.Position = isToggled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10) Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255) Circle.Parent = SliderBg
-            local CircleCorner = Instance.new("UICorner") CircleCorner.CornerRadius = UDim.new(0, 10) CircleCorner.Parent = Circle
-            
-            local HitButton = Instance.new("TextButton") HitButton.Size = UDim2.new(1, 0, 1, 0) HitButton.BackgroundTransparency = 1 HitButton.Text = "" HitButton.Parent = SliderBg
-
-            HitButton.MouseButton1Click:Connect(function()
-                isToggled = not isToggled
-                if isToggled then 
-                    SliderBg.BackgroundColor3 = Color3.fromRGB(46, 204, 113) 
-                    Circle:TweenPosition(UDim2.new(1, -23, 0.5, -10), "Out", "Quad", 0.15, true)
-                else 
-                    SliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 60) 
-                    Circle:TweenPosition(UDim2.new(0, 3, 0.5, -10), "Out", "Quad", 0.15, true)
-                end
-                callback(isToggled)
-            end)
+            local toggleName, callback, isToggled = config.Name or "Toggle", config.Callback or function() end, config.CurrentValue or false
+            local ToggleFrame = Instance.new("Frame", TabContent) ToggleFrame.Size = UDim2.new(1, -5, 0, 48) ToggleFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32) Instance.new("UICorner", ToggleFrame).CornerRadius = UDim.new(0, 10) Instance.new("UIStroke", ToggleFrame).Color = Color3.fromRGB(35, 35, 45)
+            local ToggleText = Instance.new("TextLabel", ToggleFrame) ToggleText.Size = UDim2.new(1, -80, 1, 0) ToggleText.Position = UDim2.new(0, 14, 0, 0) ToggleText.BackgroundTransparency = 1 ToggleText.Text = toggleName ToggleText.TextColor3 = Color3.fromRGB(240, 240, 245) ToggleText.TextSize = 13 ToggleText.TextXAlignment = Enum.TextXAlignment.Left ToggleText.Font = Enum.Font.GothamBold
+            local SliderBg = Instance.new("Frame", ToggleFrame) SliderBg.Size = UDim2.new(0, 52, 0, 26) SliderBg.Position = UDim2.new(1, -66, 0.5, -13) Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(0, 13)
+            local Circle = Instance.new("Frame", SliderBg) Circle.Size = UDim2.new(0, 20, 0, 20) Instance.new("UICorner", Circle).CornerRadius = UDim.new(0, 10) Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            local HitButton = Instance.new("TextButton", SliderBg) HitButton.Size = UDim2.new(1, 0, 1, 0) HitButton.BackgroundTransparency = 1 HitButton.Text = ""
+            local function updateToggleVisual() SliderBg.BackgroundColor3 = isToggled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(50, 50, 60) Circle:TweenPosition(isToggled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10), "Out", "Quad", 0.15, true) end
+            updateToggleVisual() callback(isToggled)
+            HitButton.MouseButton1Click:Connect(function() isToggled = not isToggled updateToggleVisual() callback(isToggled) end)
         end
-        
-        -- 2. HÀM DROPDOWN ĐÃ ĐƯỢC THÊM MỚI CHUẨN GRADIENT
         function TabMethods:CreateDropdown(config)
-            local dropName = config.Name or "Dropdown"
-            local options = config.Options or {}
-            local callback = config.Callback or function() end
-            local currentSelected = config.CurrentOption or options[1]
-            
-            local DropFrame = Instance.new("Frame") DropFrame.Size = UDim2.new(1, -5, 0, 48) DropFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32) DropFrame.BorderSizePixel = 0 DropFrame.Parent = TabContent
-            local FrameCorner = Instance.new("UICorner") FrameCorner.CornerRadius = UDim.new(0, 10) FrameCorner.Parent = DropFrame
-            local FrameStroke = Instance.new("UIStroke") FrameStroke.Thickness = 1 FrameStroke.Color = Color3.fromRGB(35, 35, 45) FrameStroke.Parent = DropFrame
-
-            local DropText = Instance.new("TextLabel") DropText.Size = UDim2.new(1, -150, 1, 0) DropText.Position = UDim2.new(0, 14, 0, 0) DropText.BackgroundTransparency = 1 DropText.Text = dropName DropText.TextColor3 = Color3.fromRGB(240, 240, 245) DropText.TextSize = 13 DropText.TextXAlignment = Enum.TextXAlignment.Left DropText.Font = Enum.Font.GothamBold DropText.Parent = DropFrame
-            
-            local SelectBtn = Instance.new("TextButton") SelectBtn.Size = UDim2.new(0, 120, 0, 30) SelectBtn.Position = UDim2.new(1, -134, 0.5, -15) SelectBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) SelectBtn.Text = currentSelected .. " ▾" SelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255) SelectBtn.TextSize = 12 SelectBtn.Font = Enum.Font.GothamBold SelectBtn.Parent = DropFrame
-            local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = SelectBtn
-            
-            local currentIdx = 1
-            for i, v in ipairs(options) do if v == currentSelected then currentIdx = i break end end
-            
-            SelectBtn.MouseButton1Click:Connect(function()
-                currentIdx = currentIdx + 1 if currentIdx > #options then currentIdx = 1 end
-                currentSelected = options[currentIdx]
-                SelectBtn.Text = currentSelected .. " ▾"
-                callback(currentSelected)
-            end)
+            local dropName, options, callback, currentSelected = config.Name or "Dropdown", config.Options or {}, config.Callback or function() end, config.CurrentOption or ""
+            local DropFrame = Instance.new("Frame", TabContent) DropFrame.Size = UDim2.new(1, -5, 0, 48) DropFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32) Instance.new("UICorner", DropFrame).CornerRadius = UDim.new(0, 10) Instance.new("UIStroke", DropFrame).Color = Color3.fromRGB(35, 35, 45)
+            local DropText = Instance.new("TextLabel", DropFrame) DropText.Size = UDim2.new(1, -150, 1, 0) DropText.Position = UDim2.new(0, 14, 0, 0) DropText.BackgroundTransparency = 1 DropText.Text = dropName DropText.TextColor3 = Color3.fromRGB(240, 240, 245) DropText.TextSize = 13 DropText.TextXAlignment = Enum.TextXAlignment.Left DropText.Font = Enum.Font.GothamBold
+            local SelectBtn = Instance.new("TextButton", DropFrame) SelectBtn.Size = UDim2.new(0, 120, 0, 30) SelectBtn.Position = UDim2.new(1, -134, 0.5, -15) SelectBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) SelectBtn.Text = currentSelected .. " ▾" SelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255) SelectBtn.TextSize = 12 SelectBtn.Font = Enum.Font.GothamBold Instance.new("UICorner", SelectBtn).CornerRadius = UDim.new(0, 6)
+            local currentIdx = 1 for i, v in ipairs(options) do if v == currentSelected then currentIdx = i break end end
+            SelectBtn.MouseButton1Click:Connect(function() currentIdx = currentIdx + 1 if currentIdx > #options then currentIdx = 1 end currentSelected = options[currentIdx] SelectBtn.Text = currentSelected .. " ▾" callback(currentSelected) end)
         end
-        
         return TabMethods
     end
-    return LibraryMethods
+    return MyLibrary
 end
 -- ====================================================================
--- PHẦN 1.2: LOGIC HỆ THỐNG TỰ ĐỘNG HỒI SINH (SỬ DỤNG SPAWNHANDLER)
+-- PHẦN 2: LOGIC HỆ THỐNG AUTO SPAWN NGẦM (BẢN SIÊU GỌN)
 -- ====================================================================
-local PlayersService = game:GetService("Players")
-local LocalPlayer = PlayersService.LocalPlayer
+local P = game:GetService("Players").LocalPlayer
+local VU = game:GetService("VirtualUser")
+local Cam = game:GetService("Workspace").CurrentCamera
+_G.AutoSpawnEnabled = false
 
 task.spawn(function()
-    while true do
-        task.wait(1)
-        
-        local character = LocalPlayer.Character
-        -- Kiểm tra nếu nhân vật chưa load hoặc đã chết
-        if not character or (character:FindFirstChild("Humanoid") and character.Humanoid.Health <= 0) then
-            
-            -- Cách 1: Tự động kích hoạt thông qua việc gọi Remote trong hệ thống (Tối ưu nhất)
-            pcall(function()
-                -- Tìm tất cả các RemoteEvent trong ReplicatedStorage liên quan đến Spawn
-                for _, obj in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
-                    if obj:IsA("RemoteEvent") and (string.find(string.lower(obj.Name), "spawn") or string.find(string.lower(obj.Name), "respawn")) then
-                        obj:FireServer() -- Gửi tín hiệu hồi sinh thẳng lên Server độc lập với UI
-                    end
-                end
-            end)
-
-            -- Cách 2: Ép UI "Load" kích hoạt nếu nó chứa nút ẩn bên trong
-            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-            local loadGui = playerGui and playerGui:FindFirstChild("Load")
-            
-            if loadGui then
+    while true do task.wait(0.5)
+        if _G.AutoSpawnEnabled then
+            local chr = P.Character local pGui = P:FindFirstChild("PlayerGui") local lGui = pGui and pGui:FindFirstChild("Load")
+            if not chr or (chr:FindFirstChild("Humanoid") and chr.Humanoid.Health <= 0) or (lGui and lGui.Enabled) then
                 pcall(function()
-                    -- Quét mọi nút bấm ẩn bên trong cụm UI "Load" xuất hiện trong ảnh
-                    for _, gui in pairs(loadGui:GetDescendants()) do
-                        if gui:IsA("TextButton") or gui:IsA("ImageButton") then
-                            gui:Activate()
-                            if getconnections then
-                                for _, connection in pairs(getconnections(gui.MouseButton1Click)) do connection:Fire() end
-                                for _, connection in pairs(getconnections(gui.Activated)) do connection:Fire() end
-                            end
-                        end
+                    for _, o in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do 
+                        if o:IsA("RemoteEvent") and (o.Name:lower():find("spawn") or o.Name:lower():find("respawn")) then o:FireServer() end 
                     end
                 end)
+                if lGui then pcall(function()
+                    for _, g in pairs(lGui:GetDescendants()) do
+                        if (g:IsA("TextButton") or g:IsA("ImageButton")) and g.AbsoluteSize.X > 0 and g.AbsolutePosition.X >= 0 then
+                            lGui.Enabled = false if Cam.CameraType == Enum.CameraType.Scriptable then Cam.CameraType = Enum.CameraType.Custom end
+                            local x, y = g.AbsolutePosition.X + (g.AbsoluteSize.X / 2), g.AbsolutePosition.Y + (g.AbsoluteSize.Y / 2) + 36
+                            VU:Button1Down(Vector2.new(x, y)) task.wait(0.02) VU:Button1Up(Vector2.new(x, y)) g:Activate()
+                            if getconnections then 
+                                for _, c in pairs(getconnections(g.MouseButton1Click)) do c:Fire() end 
+                                for _, c in pairs(getconnections(g.Activated)) do c:Fire() end 
+                            end
+                            task.wait(0.3) break
+                        end
+                    end
+                end) end
             end
-            
         end
     end
 end)
+-- ====================================================================
+-- PHẦN 3: KHỞI TẠO MENU VÀ LIÊN KẾT TOGGLE AUTO SPAWN (EXECUTION)
+-- ====================================================================
+local Window = MyLibrary:CreateWindow("KYYUUUNOPRO PREMIUM")
+local MainTab = Window:CreateTab("Main Scripts")
 
+-- Kết nối nút gạt trực tiếp vào hệ thống Auto Spawn ngầm ở Phần 2
+MainTab:CreateToggle({
+    Name = "Auto Respawn / Spawn",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.AutoSpawnEnabled = Value
+    end
+})
+
+-- Tạo một Dropdown mẫu để bạn mở rộng thêm tính năng sau này
+MainTab:CreateDropdown({
+    Name = "Chọn Chế Chế Độ",
+    Options = {"Mặc định", "Hồi sinh nhanh"},
+    CurrentOption = "Mặc định",
+    Callback = function(Option)
+        print("Đã chọn chế độ: " .. Option)
+    end
+})
 
 -- ====================================================================
 -- PHẦN 2: KHỞI CHẠY MENU, ĐÈN LED RGB VÀ LOGIC TÍNH NĂNG FARM QUÁI
