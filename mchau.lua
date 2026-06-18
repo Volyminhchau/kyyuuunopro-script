@@ -109,125 +109,78 @@ MainTab:CreateDropdown({
 })
 
 -- ====================================================================
--- PHẦN 2: KHỞI CHẠY MENU, ĐÈN LED RGB VÀ LOGIC TÍNH NĂNG FARM QUÁI
+-- PHẦN 2: ĐÈN LED RGB & LOGIC TÍNH NĂNG FARM QUÁI (SIÊU RÚT GỌN)
 -- ====================================================================
+local PL = game:GetService("Players").LocalPlayer
+local VU = game:GetService("VirtualUser")
+local W = workspace
+
+local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
+local FarmTab = MainMenu:CreateTab("Farm ⚔️")
+
+-- Hiệu ứng RGB đổi màu nền tiêu đề mượt mà
 task.spawn(function()
-    local hue = 0
-    while task.wait(0.01) do
-        hue = hue + 0.005 if hue > 1 then hue = 0 end
-        local rgbColor = Color3.fromHSV(hue, 0.9, 0.9)
-        if Title then Title.BackgroundColor3 = rgbColor end
-        if OpenButton then OpenButton.BackgroundColor3 = rgbColor end
+    local h = 0
+    while task.wait(0.01) do h = h + 0.005 if h > 1 then h = 0 end
+    local c = Color3.fromHSV(h, 0.9, 0.9)
+    pcall(function() Title.BackgroundColor3 = c if OpenButton then OpenButton.BackgroundColor3 = c end end)
     end
 end)
 
-local MainMenu = MyLibrary:CreateWindow("Kyyuuunopro Private ⚔️")
-
--- Tạo mục Farm ở thanh danh mục bên trái
-local FarmTab = MainMenu:CreateTab("Farm ⚔️")
-
-local _G = _G or {}
 _G.AutoFarm = false
-local fakeMonsterBlacklist = {} local currentTarget = nil local previousHealth = 0 local checkTimer = 0
-local targetNPCs = {"Bandit", "Thug", "Angry bob", "Angry Freddy", "Thief", "Gunslinger"}
+local bl, cur, pHealth, timer = {}, nil, 0, 0
+local npcs = {"bandit", "thug", "angry bob", "angry freddy", "thief", "gunslinger"}
 
-local function isTargetNPC(name)
-    local lowerName = string.lower(name)
-    for _, target in pairs(targetNPCs) do if string.find(lowerName, string.lower(target)) then return true end end
+local function checkNPC(n)
+    local ln = n:lower()
+    for _, t in pairs(npcs) do if ln:find(t) then return true end end
     return false
 end
 
 FarmTab:CreateToggle({
-    Name = "Auto Farm Mobs (Máu < 2000)",
-    CurrentValue = false,
-    Callback = function(Value)
-        _G.AutoFarm = Value
-        if _G.AutoFarm then
-            fakeMonsterBlacklist = {} currentTarget = nil checkTimer = 0
+    Name = "Auto Farm Mobs (Máu < 2000)", CurrentValue = false,
+    Callback = function(v)
+        _G.AutoFarm = v
+        if v then
+            bl, cur, timer = {}, nil, 0
             task.spawn(function()
-                while _G.AutoFarm do
-                    task.wait(0.02)
-                    local character = localPlayer.Character
-                    if character then
-                        local myRoot = character:FindFirstChild("HumanoidRootPart")
-                        local myHumanoid = character:FindFirstChildOfClass("Humanoid")
-                        if myRoot and myHumanoid and myHumanoid.Health > 0 then
-                            local targetNPC = nil local targetPart = nil
-                            
-                            -- Quét tìm mục tiêu hợp lệ
-                            for _, obj in pairs(workspace:GetDescendants()) do
-                                -- Kiểm tra Blacklist theo cả Object và Tên của NPC đó
-                                if not fakeMonsterBlacklist[obj] and not fakeMonsterBlacklist[obj.Name] then
-                                    local enemyHumanoid = obj:FindFirstChildOfClass("Humanoid")
-                                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHumanoid.MaxHealth < 2000 then
-                                        local isPlayer = game:GetService("Players"):GetPlayerFromCharacter(obj)
-                                        if not isPlayer and obj.Name ~= localPlayer.Name then
-                                            if isTargetNPC(obj.Name) or obj.Name == "" or obj.Name == "NPC" or string.len(obj.Name) <= 4 or obj:IsA("Model") then
-                                                local isQuestParent = false local currentParent = obj.Parent
-                                                while currentParent and currentParent ~= workspace do
-                                                    local parentName = string.lower(currentParent.Name)
-                                                    if string.find(parentName, "quest") or string.find(parentName, "giver") or string.find(parentName, "dialog") then isQuestParent = true break end
-                                                    currentParent = currentParent.Parent
-                                                end
-                                                if not isQuestParent then
-                                                    local part = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("Head") or obj:FindFirstChild("Base") or obj:FindFirstChildOfClass("Part")
-                                                    if part then targetNPC = obj targetPart = part break end
-                                                end
-                                            end
+                while _G.AutoFarm do task.wait(0.02)
+                    local chr = PL.Character local root = chr and chr:FindFirstChild("HumanoidRootPart") local hum = chr and chr:FindFirstChildOfClass("Humanoid")
+                    if root and hum and hum.Health > 0 then
+                        local tNPC, tPart = nil, nil
+                        for _, o in pairs(W:GetDescendants()) do
+                            if not bl[o] and not bl[o.Name] and o:FindFirstChildOfClass("Humanoid") then
+                                local eh = o:FindFirstChildOfClass("Humanoid")
+                                if eh.Health > 0 and eh.MaxHealth < 2000 and o.Name ~= PL.Name and not game:GetService("Players"):GetPlayerFromCharacter(o) then
+                                    if checkNPC(o.Name) or o.Name == "" or o.Name == "NPC" or #o.Name <= 4 then
+                                        local pName = o.Parent and o.Parent.Name:lower() or ""
+                                        if not pName:find("quest") and not pName:find("giver") and not pName:find("dialog") then
+                                            local p = o:FindFirstChild("HumanoidRootPart") or o:FindFirstChild("Torso") or o:FindFirstChild("Head") or o:FindFirstChildOfClass("Part")
+                                            if p then tNPC, tPart = o, p break end
                                         end
                                     end
                                 end
                             end
-                            
-                            -- Xử lý logic tấn công và phát hiện bất tử
-                            if targetNPC and targetPart then
-                                local enemyHumanoid = targetNPC:FindFirstChildOfClass("Humanoid")
-                                
-                                if currentTarget == targetNPC then
-                                    -- Nếu máu của mục tiêu giữ nguyên hoặc tăng lên (đánh không mất máu)
-                                    if enemyHumanoid and enemyHumanoid.Health >= previousHealth then
-                                        checkTimer = checkTimer + 1
-                                        -- Đợi đủ 60 vòng lặp (~1.2 giây) để chắc chắn vũ khí đã vung trúng nhưng không gây được sát thương
-                                        if checkTimer > 60 then 
-                                            fakeMonsterBlacklist[targetNPC] = true 
-                                            fakeMonsterBlacklist[targetNPC.Name] = true -- Đưa tên NPC vào danh sách đen vĩnh viễn
-                                            warn("🔴 Đã chặn NPC bất tử: " .. targetNPC.Name)
-                                            currentTarget = nil 
-                                            checkTimer = 0 
-                                        end
-                                    else
-                                        -- Nếu quái bị mất máu thành công thì cập nhật lại máu mới và reset bộ đếm lỗi
-                                        if enemyHumanoid then previousHealth = enemyHumanoid.Health end 
-                                        checkTimer = 0
-                                    end
+                        end
+                        if tNPC and tPart then
+                            local eh = tNPC:FindFirstChildOfClass("Humanoid")
+                            if cur == tNPC then
+                                if eh and eh.Health >= pHealth then
+                                    timer = timer + 1 if timer > 60 then bl[tNPC], bl[tNPC.Name] = true, true cur, timer = nil, 0 warn("🔴 Đã chặn NPC bất tử: "..tNPC.Name) end
                                 else
-                                    -- Đổi mục tiêu mới
-                                    currentTarget = targetNPC 
-                                    if enemyHumanoid then previousHealth = enemyHumanoid.Health end 
-                                    checkTimer = 0
-                                end
-                                
-                                -- Thực hiện di chuyển và đánh (Chỉ chạy khi không nằm trong Blacklist)
-                                if currentTarget == targetNPC and not fakeMonsterBlacklist[targetNPC] and not fakeMonsterBlacklist[targetNPC.Name] then
-                                    local targetPosition = targetPart.Position + (targetPart.CFrame.LookVector * -1.2)
-                                    myRoot.CFrame = CFrame.new(targetPosition, targetPart.Position)
-                                    
-                                    local tool = character:FindFirstChildOfClass("Tool")
-                                    if not tool then 
-                                        local backpackTool = localPlayer.Backpack:FindFirstChildOfClass("Tool") 
-                                        if backpackTool then backpackTool.Parent = character end 
-                                    end
-                                    
-                                    pcall(function() 
-                                        VirtualUser:CaptureController() 
-                                        VirtualUser:ClickButton1(Vector2.new(9999, 9999)) 
-                                    end)
+                                    if eh then pHealth = eh.Health end timer = 0
                                 end
                             else
-                                -- Nếu không tìm thấy quái nào hợp lệ, reset mục tiêu hiện tại
-                                currentTarget = nil
-                                checkTimer = 0
+                                cur = tNPC if eh then pHealth = eh.Health end timer = 0
                             end
+                            if cur == tNPC and not bl[tNPC] and not bl[tNPC.Name] then
+                                root.CFrame = CFrame.new(tPart.Position + (tPart.CFrame.LookVector * -1.2), tPart.Position)
+                                local tl = chr:FindFirstChildOfClass("Tool") or PL.Backpack:FindFirstChildOfClass("Tool")
+                                if tl and tl.Parent ~= chr then tl.Parent = chr end
+                                pcall(function() VU:CaptureController() VU:ClickButton1(Vector2.new(9999, 9999)) end)
+                            end
+                        else
+                            cur, timer = nil, 0
                         end
                     end
                 end
@@ -237,105 +190,42 @@ FarmTab:CreateToggle({
 })
 
 -- ====================================================================
--- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN - KHÓA ĐỘ CAO CHỐNG RƠI LỌT ĐẤT
+-- PHẦN MỚI: TẠO MỤC TELEPORT ĐẢO AN TOÀN (BẢN SIÊU GỌN)
 -- ====================================================================
--- Khởi tạo nút "Teleport 🌀" ở thanh bên trái nằm ngay dưới nút Farm
-    local TeleportTab = MainMenu:CreateTab("Teleport 🌀")
+local TeleportTab = MainMenu:CreateTab("Teleport 🌀")
 
--- Hàm phụ trách dò tìm đảo và đưa người chơi đáp xuống GIỮA ĐẢO TRÊN CAO an toàn
-local function teleportToIsland(islandName)
-    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local myRoot = localPlayer.Character.HumanoidRootPart
-        local foundIsland = nil
-        
-        -- Quét toàn map tìm khối gạch hoặc Model có tên đảo
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if string.find(string.lower(obj.Name), string.lower(islandName)) and (obj:IsA("BasePart") or obj:IsA("Model")) then
-                foundIsland = obj
-                break
-            end
+local function tpToIsland(name)
+    local chr = localPlayer.Character local root = chr and chr:FindFirstChild("HumanoidRootPart")
+    if root then
+        local found = nil
+        for _, o in pairs(workspace:GetDescendants()) do
+            if o.Name:lower():find(name:lower()) and (o:IsA("BasePart") or o:IsA("Model")) then found = o break end
         end
-        
-        if foundIsland then
-            local islandCFrame
-            
-            -- Xác định tọa độ trung tâm (Center CFrame) của hòn đảo
-            if foundIsland:IsA("Model") then
-                islandCFrame = foundIsland:GetBoundingBox()
-            else
-                islandCFrame = foundIsland.CFrame
-            end
-            
-            -- 🌟 TĂNG ĐỘ CAO LÊN 120 STUDS ĐỂ SIÊU AN TOÀN
-            local safeCFrame = islandCFrame * CFrame.new(0, 140, 0)
-            
-            -- 🌟 BỘ KHÓA VỊ TRÍ CHỐNG RƠI (ANCHOR):
-            -- Đóng băng nhân vật đứng im trên không trung để tránh bị trọng lực kéo tụt xuống đất
-            myRoot.Anchored = true
-            myRoot.CFrame = safeCFrame
-            
-            -- Chờ 1.5 giây cho game tải (load) xong bản đồ và địa hình của đảo mới
-            task.wait(1.5)
-            
-            -- Mở khóa đóng băng để nhân vật rơi nhẹ từ trên trời xuống bãi cỏ giữa đảo
-            myRoot.Anchored = false
+        if found then
+            local cf = found:IsA("Model") and found:GetBoundingBox() or found.CFrame
+            root.Anchored = true root.CFrame = cf * CFrame.new(0, 140, 0)
+            task.wait(1.5) root.Anchored = false
         end
     end
 end
 
 -- TẠO CÁC NÚT DỊCH CHUYỂN BÊN TRONG MỤC TELEPORT
--- ⚠️ Hãy nhớ thay thế chữ tiếng Anh trong dấu "" thành tên hòn đảo thật trong game của bạn nhé!
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Pyramid Island",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Pyramid") end
-    end
-})
+local islands = {
+    {N = "Dịch chuyển đến Pyramid Island", I = "Pyramid"},
+    {N = "Dịch chuyển đến Jungle Island", I = "Jungle Island"},
+    {N = "Dịch chuyển đến Island", I = "Rocky Island"},
+    {N = "Dịch chuyển đến Purple Island", I = "Purple Island"},
+    {N = "Dịch chuyển đến small snow", I = "Small snow"},
+    {N = "Dịch chuyển đến Big Snow", I = "Mountains"},
+    {N = "Dịch chuyển đến Sam's Island", I = "Sam's Island"}
+}
 
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Jungle Island",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Jungle Island") end
-    end
-})
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Island",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Rocky Island") end
-    end
-})
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Purple Island",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Purple Island") end
-    end
-})
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến small snow",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Small snow") end
-    end
-})
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Big Snow",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Mountains") end
-    end
-})
-TeleportTab:CreateToggle({
-    Name = "Dịch chuyển đến Sam's Island",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then teleportToIsland("Sam's Island") end
-        end
-})
-
+for _, isl in ipairs(islands) do
+    TeleportTab:CreateToggle({
+        Name = isl.N, CurrentValue = false,
+        Callback = function(v) if v then tpToIsland(isl.I) end end
+    })
+end
 
 
 local tab3 = MainMenu:CreateTab("Compass 🧭")
