@@ -1,8 +1,3 @@
-Dưới đây là bản code đã được **xóa bỏ hoàn toàn Phần 5 (Tab Compass 🧭)** theo yêu cầu của bạn.
-
-Hiện tại menu sẽ chỉ còn lại 2 Tab gọn gàng: **Farm ⚔️** (chứa ô nhập tên NPC tự chọn + nút bật tắt Auto TP áp sát) và **Teleport 🌀** (chứa danh sách các đảo an toàn).
-
-```lua
 -- ====================================================================
 -- PHẦN 1: THƯ VIỆN GIAO DIỆN (ĐÃ TỐI ƯU Ô NHẬP TEXTBOX)
 -- ====================================================================
