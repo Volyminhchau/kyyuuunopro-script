@@ -145,7 +145,7 @@ local function tpToIsland(name)
 end
 
 local islands = {
-    {N = "Pyramid Island", I = "Pyramid"},
+    {N = "Blossom Haven", I = "map-9"},
     {N = "Jungle Island", I = "Jungle Island"},
     {N = "Rocky Island", I = "Rocky Island"},
     {N = "Purple Island", I = "Purple Island"},
@@ -160,3 +160,5 @@ for _, isl in ipairs(islands) do
         Callback = function(v) if v then tpToIsland(isl.I) end end
     })
 end
+
+```
